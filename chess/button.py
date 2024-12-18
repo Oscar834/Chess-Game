@@ -9,7 +9,7 @@ class Button:
         self.rect.topleft = (x, y)
         self.clicked = False
         
-    def create_button(self, window):
+    def Clicked(self, window):
         clickAction = False
         mousePosition = pygame.mouse.get_pos()
 
