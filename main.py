@@ -5,6 +5,7 @@ from chess.Constants import SQUARE_HEIGHT, SQUARE_WIDTH, WHITE, GREEN, BLACK, GR
 from chess.GameManager import Game
 from chess.Board import Board
 from chess.AI import Minimax
+from copy import deepcopy
 
 pygame.init()
 pygame.mixer.init()
@@ -29,6 +30,8 @@ oppMoveSFX = pygame.mixer.Sound('Sounds/Opp Move.mp3')
 gameEndSFX = pygame.mixer.Sound('Sounds/Game end.mp3')
 lowTimeSFX = pygame.mixer.Sound('Sounds/Timer Sound.mp3')
 castleSFX = pygame.mixer.Sound('Sounds/Castle sound.mp3')
+takeImage = pygame.image.load('images/Takeback.png')
+takeBackButton = Button(10, 700, takeImage, 1.2)
 
 #Function that first converts the text into an image in order to allow it to be displayed on the screen
 def DisplayText(text, font, color, x, y):
@@ -50,6 +53,8 @@ def Play(time, difficulty=None, colour=None):
     checkSFXPlayed = False
     playerMoveSFXPlayed = False
     oppMoveSFXPlayed = False
+    wtimeSFXPlayed = False
+    btimeSFXPlayed = False
 
     if colour == 'blue':
         boardColour = BLUE
@@ -65,27 +70,56 @@ def Play(time, difficulty=None, colour=None):
     blackSeconds = time * 60
     pygame.time.set_timer(pygame.USEREVENT, 1000)
 
+    moves = [deepcopy(board)]
+    count = 1
     while running:
         if game.turn == 'Black' and difficulty == 'Easy':
-            newBoard = Minimax(game.GetBoard(), 0, 'Black', game, 'Easy')
+            newBoard = Minimax(game.GetBoard(), 0, False, game, 'Easy', float('-inf'), float('inf'))
             game.AIMovement(newBoard)
+            moves.append(deepcopy(newBoard))
 
-        if game.InCheck() != None and not checkSFXPlayed:
+        if game.turn == 'Black' and difficulty == 'Medium':
+            value, newBoard = Minimax(game.GetBoard(), 1, False, game, 'Medium', float('-inf'), float('inf'))
+            game.AIMovement(newBoard)
+            print(value)
+            moves.append(deepcopy(newBoard))
+
+        if game.turn == 'Black' and difficulty == 'Hard':
+            newBoard = Minimax(game.GetBoard(), 0, False, game, 'Hard', float('-inf'), float('inf'))
+            game.AIMovement(newBoard)
+            moves.append(deepcopy(newBoard))
+
+        if takeBackButton.Clicked(gameWindow) and (difficulty == 'Medium' or difficulty == 'Easy' or difficulty == 'Hard') and count <= 3:
+            count += 1
+            if len(moves) > 1:
+                moves.pop()
+            actualBoard = moves[-1]
+            game.AIBoard(deepcopy(actualBoard))
+
+        if game.InCheck(game.turn) != None and not checkSFXPlayed:
             checkSFX.play()
             checkSFXPlayed = True
 
-        elif game.InCheck() == None: #Error
+        elif game.InCheck(game.turn) == None: #Error
             checkSFXPlayed = False
 
-        if game.turn == 'White' and not playerMoveSFXPlayed and game.InCheck() == None:
+        if game.turn == 'White' and not playerMoveSFXPlayed and game.InCheck(game.turn) == None:
             playerMoveSFX.play()
             playerMoveSFXPlayed = True
             oppMoveSFXPlayed = False
 
-        elif game.turn == 'Black' and not oppMoveSFXPlayed and game.InCheck() == None:
+        elif game.turn == 'Black' and not oppMoveSFXPlayed and game.InCheck(game.turn) == None:
             oppMoveSFX.play()
             oppMoveSFXPlayed = True
             playerMoveSFXPlayed = False
+
+        if whiteSeconds < 10 and not wtimeSFXPlayed:
+            lowTimeSFX.play()
+            wtimeSFXPlayed = True
+
+        if blackSeconds < 10 and not btimeSFXPlayed:
+            lowTimeSFX.play()
+            btimeSFXPlayed = True
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -126,6 +160,14 @@ def Play(time, difficulty=None, colour=None):
             gameEndSFX.play()
             targetMenu = 'Insufficient Material'
             running = False
+        elif whiteSeconds == 0:
+            gameEndSFX.play()
+            targetMenu = 'Black win time'
+            running = False
+        elif blackSeconds == 0:
+            gameEndSFX.play()
+            targetMenu = 'White win time'
+            running = False
     
         # Draws the rectangles on which the timers would appear
         pygame.draw.rect(gameWindow, WHITE, (1, 375, 98, 50))
@@ -161,6 +203,10 @@ def Play(time, difficulty=None, colour=None):
         GameResult('draw', 'Stalemate', time)
     elif targetMenu == 'Insufficient Material':
         GameResult('draw', 'Insufficient Material', time)
+    elif targetMenu == 'Black win time':
+        GameResult('win', 'Timeout', time, 'Black')
+    elif targetMenu == 'White win time':
+        GameResult('win', 'Timeout', time, 'White')
         
 def GameResult(outcome, method, time, pieceColour=None, boardColour=None):
     targetMenu = None
@@ -169,17 +215,27 @@ def GameResult(outcome, method, time, pieceColour=None, boardColour=None):
         DisplayText('WHITE WON!', mainText, WHITE, 190, 50)
         DisplayText('by checkmate', subText, WHITE, 360, 180)
 
-    elif outcome == 'win' and method == 'Checkmate' and pieceColour == 'Black':
+    if outcome == 'win' and method == 'Checkmate' and pieceColour == 'Black':
         gameWindow.fill(GREEN)
         DisplayText('BLACK WON!', mainText, BLACK, 190, 50)
         DisplayText('by checkmate', subText, BLACK, 360, 180)
 
-    elif outcome == 'draw' and method == 'Stalemate':
+    if outcome == 'win' and method == 'Timeout' and pieceColour == 'White':
+        gameWindow.fill(GREEN)
+        DisplayText('WHITE WON!', mainText, WHITE, 190, 50)
+        DisplayText('by timeout', subText, WHITE, 390, 180)
+
+    if outcome == 'win' and method == 'Timeout' and pieceColour == 'Black':
+        gameWindow.fill(GREEN)
+        DisplayText('BLACK WON!', mainText, BLACK, 190, 50)
+        DisplayText('by timeout', subText, BLACK, 390, 180)
+
+    if outcome == 'draw' and method == 'Stalemate':
         gameWindow.fill(GREY)
         DisplayText('GAME DRAWN!', mainText, WHITE, 140, 50)
         DisplayText('by stalemate', subText, WHITE, 380, 180)
 
-    elif outcome == 'draw' and method == 'Insufficient Material':
+    if outcome == 'draw' and method == 'Insufficient Material':
         gameWindow.fill(GREY)
         DisplayText('GAME DRAWN!', mainText, WHITE, 140, 50)
         DisplayText('by insufficient material', subText, WHITE, 380, 180)
@@ -234,7 +290,7 @@ def GameResult(outcome, method, time, pieceColour=None, boardColour=None):
     if targetMenu == 'main menu':
         MainMenu()
     elif targetMenu == 'play':
-        Play(time, None, colour)
+        Play(time, None, time, None, colour)
 
 def DifficultySelection(colour=None):
     targetMenu = None
@@ -473,6 +529,22 @@ def TimerSelection(colour=None, difficulty=None):
         Play(5, 'Easy', colour)
     elif targetMenu == 'play 10min' and difficulty == 'Easy':
         Play(10, 'Easy', colour)
+    elif targetMenu == 'play 1min' and difficulty == 'Medium':
+        Play(1, 'Medium', colour)
+    elif targetMenu == 'play 3min' and difficulty == 'Medium':
+        Play(3, 'Medium', colour)
+    elif targetMenu == 'play 5min' and difficulty == 'Medium':
+        Play(5, 'Medium', colour)
+    elif targetMenu == 'play 10min' and difficulty == 'Medium':
+        Play(10, 'Medium', colour)
+    elif targetMenu == 'play 1min' and difficulty == 'Hard':
+        Play(1, 'Hard', colour)
+    elif targetMenu == 'play 3min' and difficulty == 'Hard':
+        Play(3, 'Hard', colour)
+    elif targetMenu == 'play 5min' and difficulty == 'Hard':
+        Play(5, 'Hard', colour)
+    elif targetMenu == 'play 10min' and difficulty == 'Hard':
+        Play(10, 'Hard', colour)
     elif targetMenu == 'play 1min':
         Play(1, None, colour)
     elif targetMenu == 'play 3min':
