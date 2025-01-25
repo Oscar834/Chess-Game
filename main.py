@@ -4,7 +4,7 @@ from chess.Button import Button
 from chess.Constants import SQUARE_HEIGHT, SQUARE_WIDTH, WHITE, GREEN, BLACK, GREY, BLUE, BROWN 
 from chess.GameManager import Game
 from chess.Board import Board
-from chess.AI import Minimax
+from chess.AI import Minimax, EasyMode
 from copy import deepcopy
 
 pygame.init()
@@ -45,11 +45,12 @@ def SelectedRowColumn(mousePosition):
     column = x // SQUARE_HEIGHT
     return row, column
 
-def Play(time, difficulty=None, colour=None):
+def Play(time, difficulty=None, colour=None, sound=None):
     running = True
     FONT = pygame.font.SysFont('Roboto Mono', 50)
     targetMenu = None
     boardColour = None
+    
     checkSFXPlayed = False
     playerMoveSFXPlayed = False
     oppMoveSFXPlayed = False
@@ -74,12 +75,12 @@ def Play(time, difficulty=None, colour=None):
     count = 1
     while running:
         if game.turn == 'Black' and difficulty == 'Easy':
-            newBoard = Minimax(game.GetBoard(), 0, False, game, 'Easy', float('-inf'), float('inf'))
+            newBoard = EasyMode(game.GetBoard(),game)
             game.AIMovement(newBoard)
             moves.append(deepcopy(newBoard))
 
         if game.turn == 'Black' and difficulty == 'Medium':
-            value, newBoard = Minimax(game.GetBoard(), 1, False, game, 'Medium', float('-inf'), float('inf'))
+            value, newBoard = Minimax(game.GetBoard(), 2, False, game, 'Medium', float('-inf'), float('inf'))
             game.AIMovement(newBoard)
             print(value)
             moves.append(deepcopy(newBoard))
@@ -89,35 +90,36 @@ def Play(time, difficulty=None, colour=None):
             game.AIMovement(newBoard)
             moves.append(deepcopy(newBoard))
 
-        if takeBackButton.Clicked(gameWindow) and (difficulty == 'Medium' or difficulty == 'Easy' or difficulty == 'Hard') and count <= 3:
+        if takeBackButton.Clicked(gameWindow) and difficulty != None:# and count <= 3:
             count += 1
+            #print(board.Display(AllMoves(board, 'Black', game)[18]))
             if len(moves) > 1:
                 moves.pop()
             actualBoard = moves[-1]
             game.AIBoard(deepcopy(actualBoard))
 
-        if game.InCheck(game.turn) != None and not checkSFXPlayed:
+        if game.InCheck(game.turn) != None and not checkSFXPlayed and sound == 'On':
             checkSFX.play()
             checkSFXPlayed = True
 
         elif game.InCheck(game.turn) == None: #Error
             checkSFXPlayed = False
 
-        if game.turn == 'White' and not playerMoveSFXPlayed and game.InCheck(game.turn) == None:
+        if game.turn == 'White' and not playerMoveSFXPlayed and game.InCheck(game.turn) == None and sound == 'On':
             playerMoveSFX.play()
             playerMoveSFXPlayed = True
             oppMoveSFXPlayed = False
 
-        elif game.turn == 'Black' and not oppMoveSFXPlayed and game.InCheck(game.turn) == None:
+        elif game.turn == 'Black' and not oppMoveSFXPlayed and game.InCheck(game.turn) == None and sound == 'On':
             oppMoveSFX.play()
             oppMoveSFXPlayed = True
             playerMoveSFXPlayed = False
 
-        if whiteSeconds < 10 and not wtimeSFXPlayed:
+        if whiteSeconds < 10 and not wtimeSFXPlayed and sound == 'On':
             lowTimeSFX.play()
             wtimeSFXPlayed = True
 
-        if blackSeconds < 10 and not btimeSFXPlayed:
+        if blackSeconds < 10 and not btimeSFXPlayed and sound == 'On':
             lowTimeSFX.play()
             btimeSFXPlayed = True
 
@@ -140,32 +142,38 @@ def Play(time, difficulty=None, colour=None):
                     # Makes white's time tick down
                     whiteSeconds -= 1
                 # Checks if it is currently black's turn
-                elif game.turn == 'Black':
+                else:
                     # Makes black' time tick down
                     blackSeconds -= 1
 
         if game.Checkmate('Black'):
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'White Checkmate'
             running = False
         elif game.Checkmate('White'):
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'Black Checkmate'
             running = False
         elif game.Stalemate():
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'Stalemate'
             running = False
         elif game.InsufficientMaterial():
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'Insufficient Material'
             running = False
         elif whiteSeconds == 0:
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'Black win time'
             running = False
         elif blackSeconds == 0:
-            gameEndSFX.play()
+            if sound == 'On':
+                gameEndSFX.play()
             targetMenu = 'White win time'
             running = False
     
@@ -292,7 +300,7 @@ def GameResult(outcome, method, time, pieceColour=None, boardColour=None):
     elif targetMenu == 'play':
         Play(time, None, time, None, colour)
 
-def DifficultySelection(colour=None):
+def DifficultySelection(colour=None, sound=None):
     targetMenu = None
     bgImage = pygame.image.load('images/Difficulty.png')
     gameWindow.blit(pygame.transform.scale(bgImage, (1000, 800)), (0, 0))
@@ -387,15 +395,15 @@ def DifficultySelection(colour=None):
 
     # Responsible for directing the players to the correct menus
     if targetMenu == 'game mode':
-        GameMode(colour)
+        GameMode(colour, sound)
     elif targetMenu == 'Easy_AI_timer':
-        TimerSelection(colour, 'Easy')
+        TimerSelection(colour, 'Easy', sound)
     elif targetMenu == 'Medium_AI_timer':
-        TimerSelection(colour, 'Medium')
+        TimerSelection(colour, 'Medium', sound)
     elif targetMenu == 'Hard_AI_timer':
-        TimerSelection(colour, 'Hard')
+        TimerSelection(colour, 'Hard', sound)
     
-def TimerSelection(colour=None, difficulty=None):
+def TimerSelection(colour=None, difficulty=None, sound=None):
     targetMenu = None
     bgImage = pygame.image.load('images/Timer Image.jpg')
     gameWindow.blit(pygame.transform.scale(bgImage, (1000, 800)), (0, 0))
@@ -518,41 +526,41 @@ def TimerSelection(colour=None, difficulty=None):
 
     # Responsible for directing the players to the correct menus
     if targetMenu == 'game mode':
-        GameMode(colour)
+        GameMode(colour, sound)
     elif targetMenu == 'difficulty selection':
-        DifficultySelection(colour)
+        DifficultySelection(colour, sound)
     elif targetMenu == 'play 1min' and difficulty == 'Easy':
-        Play(1, 'Easy', colour)
+        Play(1, 'Easy', colour, sound)
     elif targetMenu == 'play 3min' and difficulty == 'Easy':
-        Play(3, 'Easy', colour)
+        Play(3, 'Easy', colour, sound)
     elif targetMenu == 'play 5min' and difficulty == 'Easy':
-        Play(5, 'Easy', colour)
+        Play(5, 'Easy', colour, sound)
     elif targetMenu == 'play 10min' and difficulty == 'Easy':
-        Play(10, 'Easy', colour)
+        Play(10, 'Easy', colour, sound)
     elif targetMenu == 'play 1min' and difficulty == 'Medium':
-        Play(1, 'Medium', colour)
+        Play(1, 'Medium', colour, sound)
     elif targetMenu == 'play 3min' and difficulty == 'Medium':
-        Play(3, 'Medium', colour)
+        Play(3, 'Medium', colour, sound)
     elif targetMenu == 'play 5min' and difficulty == 'Medium':
-        Play(5, 'Medium', colour)
+        Play(5, 'Medium', colour, sound)
     elif targetMenu == 'play 10min' and difficulty == 'Medium':
-        Play(10, 'Medium', colour)
+        Play(10, 'Medium', colour, sound)
     elif targetMenu == 'play 1min' and difficulty == 'Hard':
-        Play(1, 'Hard', colour)
+        Play(1, 'Hard', colour, sound)
     elif targetMenu == 'play 3min' and difficulty == 'Hard':
-        Play(3, 'Hard', colour)
+        Play(3, 'Hard', colour, sound)
     elif targetMenu == 'play 5min' and difficulty == 'Hard':
-        Play(5, 'Hard', colour)
+        Play(5, 'Hard', colour, sound)
     elif targetMenu == 'play 10min' and difficulty == 'Hard':
-        Play(10, 'Hard', colour)
+        Play(10, 'Hard', colour, sound)
     elif targetMenu == 'play 1min':
-        Play(1, None, colour)
+        Play(1, None, colour, sound)
     elif targetMenu == 'play 3min':
-        Play(3, None, colour)
+        Play(3, None, colour, sound)
     elif targetMenu == 'play 5min':
-        Play(5, None, colour)
+        Play(5, None, colour, sound)
     elif targetMenu == 'play 10min':
-        Play(10, None, colour)
+        Play(10, None, colour, sound)
 
 def Settings():
     targetMenu = None
@@ -570,7 +578,6 @@ def Settings():
     confirmImage = pygame.image.load('images/Confirm.png') 
     soundOn = pygame.image.load('images/Sound on.png')
     soundOff = pygame.image.load('images/Sound off.png')
-    resetImage = pygame.image.load('images/Reset.png')
 
     blueBoard = pygame.image.load('images/Blue Board.png')
     brownBoard = pygame.image.load('images/Brown Board.png')
@@ -583,7 +590,6 @@ def Settings():
     backButton = Button(10, 30, backImage, 0.2)
     soundOnButton = Button(480, 500, soundOn, 0.25)
     soundOffButton = Button(600, 500, soundOff, 0.25)
-    resetButton = Button(100, 700, resetImage, 0.35)
 
     # Sets the border width, height and top left coordinates for each button
     blueBorder = pygame.Rect(100, 250, 186, 186)
@@ -617,18 +623,6 @@ def Settings():
         if soundOffButton.Clicked(gameWindow):
             on, off = False, True # Sets the sound off button flag to true
 
-        #Checks if the reset button is clicked
-        if resetButton.Clicked(gameWindow):
-            # Deselects all previously selected options
-            blue, brown, green = False, False, False 
-            on, off = False, False
-            
-            #Redraws the screen again so it is completely reset
-            gameWindow.blit(pygame.transform.scale(bgImage, (1000, 800)), (0, 0))
-            DisplayText('GAME SETTINGS', mainText, (241, 249, 26), 100, 10)
-            DisplayText('CHOOSE BOARD THEME', subText, (241, 249, 26), 250, 170)
-            DisplayText('SOUND OPTIONS:', subText, (241, 249, 26), 100, 500)
-
         #Checks if the blue board flag is set to true
         if blue:
             pygame.draw.rect(gameWindow, (241, 249, 26), blueBorder, 4) #Draws the yellow border around the board theme
@@ -647,25 +641,46 @@ def Settings():
             pygame.draw.circle(gameWindow, (241, 249, 26), (632, 530), 32, 5)
 
         #This checks if one option from each sub heading has been selected and displays the confirm button if it is the case
-        if (blue and on) or (blue and off):
+        if blue and on:
             confirmButton = Button(700, 700, confirmImage, 0.5)
             #Checks if the confirm button is clicked
             if confirmButton.Clicked(gameWindow): 
-                targetMenu = 'blue game mode'
+                targetMenu = 'blue game mode with sound on'
                 run = False
 
-        elif (brown and on) or (brown and off):
+        elif blue and off:
             confirmButton = Button(700, 700, confirmImage, 0.5)
             #Checks if the confirm button is clicked
             if confirmButton.Clicked(gameWindow): 
-                targetMenu = 'brown game mode'
+                targetMenu = 'blue game mode with sound off'
                 run = False
 
-        elif (green and on) or (green and off):
+        elif brown and on:
             confirmButton = Button(700, 700, confirmImage, 0.5)
             #Checks if the confirm button is clicked
             if confirmButton.Clicked(gameWindow): 
-                targetMenu = 'green game mode'
+                targetMenu = 'brown game mode with sound on'
+                run = False
+
+        elif brown and off:
+            confirmButton = Button(700, 700, confirmImage, 0.5)
+            #Checks if the confirm button is clicked
+            if confirmButton.Clicked(gameWindow): 
+                targetMenu = 'brown game mode with sound off'
+                run = False
+
+        elif green and on:
+            confirmButton = Button(700, 700, confirmImage, 0.5)
+            #Checks if the confirm button is clicked
+            if confirmButton.Clicked(gameWindow): 
+                targetMenu = 'green game mode with sound on'
+                run = False
+
+        elif green and off:
+            confirmButton = Button(700, 700, confirmImage, 0.5)
+            #Checks if the confirm button is clicked
+            if confirmButton.Clicked(gameWindow): 
+                targetMenu = 'green game mode with sound off'
                 run = False
         
         for event in pygame.event.get():
@@ -678,14 +693,20 @@ def Settings():
     #Responsible for directing the players to the correct menus
     if targetMenu == 'main menu':
         MainMenu()
-    elif targetMenu == 'blue game mode':
-        GameMode('blue')
-    elif targetMenu == 'brown game mode':
-        GameMode('brown')
-    elif targetMenu == 'green game mode':
-        GameMode('green')
+    elif targetMenu == 'blue game mode with sound on':
+        GameMode('blue', 'On')
+    elif targetMenu == 'blue game mode with sound off':
+        GameMode('blue', 'Off')
+    elif targetMenu == 'brown game mode with sound on':
+        GameMode('brown', 'On')
+    elif targetMenu == 'brown game mode with sound off':
+        GameMode('brown', 'Off')
+    elif targetMenu == 'green game mode with sound on':
+        GameMode('green', 'On')
+    elif targetMenu == 'green game mode with sound off':
+        GameMode('green', 'Off')
 
-def GameMode(colour=None):
+def GameMode(colour=None, sound=None):
     targetMenu = None # Variable to keep track of which menu to go to
     bgImage = pygame.image.load('images/Mode Image.jpg')
     gameWindow.blit(pygame.transform.scale(bgImage, (1000, 800)), (0, 0))
@@ -728,7 +749,7 @@ def GameMode(colour=None):
             pygame.draw.rect(gameWindow, (241, 249, 26), humanBorder, 6) # Draws the yellow border around the play human button
             confirmButton = Button(700, 700, confirmImage, 0.5)
             if confirmButton.Clicked(gameWindow):
-                targetMenu = 'human_timer_selection'
+                targetMenu = 'human timer selection'
                 run = False
 
         # Checks if the ai button flag is set to true
@@ -759,10 +780,10 @@ def GameMode(colour=None):
     #Responsible for directing the players to the correct menus
     if targetMenu == 'settings':
         Settings()
-    elif targetMenu == 'human_timer_selection':
-        TimerSelection(colour)
+    elif targetMenu == 'human timer selection':
+        TimerSelection(colour, None, sound)
     elif targetMenu == 'difficulty selection':
-        DifficultySelection(colour)
+        DifficultySelection(colour, sound)
 
 def MainMenu():
     targetMenu = None

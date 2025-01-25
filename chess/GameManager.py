@@ -166,7 +166,7 @@ class Game:
                 return True
         
         return False
-    
+
     def PlayerPieces(self, colour):
         playerPieces = []
 
@@ -236,6 +236,18 @@ class Game:
 
     def AIBoard(self, board):
         self.board = board
+
+    def Moves(self, colour):
+        boardMoves = []
+
+        for piece in ['King', 'Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
+            validMoves = self.PieceMoves(piece, colour)
+
+            for move in validMoves.values():
+                for moves in move:
+                    boardMoves.append(moves)
+
+        return boardMoves
     
     def SelectSquare(self, row, column):
         # checks if a square is selected
@@ -295,6 +307,9 @@ class Game:
             self.turn = 'Black'
         else:
             self.turn = 'White'
+
+    def KingMoved(self):
+        pass
     
     def NewKingMoves(self, row, column, colour):
         if colour == 'White':
@@ -307,7 +322,7 @@ class Game:
         shortCastleMoves = self.king.GetShortCastleMoves(self.board.board, row, column)
         longCastleMoves = self.king.GetLongCastleMoves(self.board.board, row, column)
         oppKingRow, oppKingColumn = self.PiecePositions('King', oppColour).get(1)
-        kingControlMoves = self.king.GetControlMoves(self.board.board, oppKingRow, oppKingColumn)
+        kingControlMoves = self.king.GetValidMoves(self.board.board, oppKingRow, oppKingColumn, 'Control')
         
         # Checks if kingside castle conditions are met and the King is not in check
         if self.board.CanCastleKingside(colour) and self.InCheck(colour) == None:
@@ -325,10 +340,10 @@ class Game:
                 if position != None:
                     pieceRow, pieceColumn = position
                     # Dynamically gets the method to calculate control moves for the given piece
-                    controlMovesMethod = getattr(self, piece.lower()).GetControlMoves
+                    controlMovesMethod = getattr(self, piece.lower()).GetValidMoves
                     # Adds a dictionary which hold the control to the list of each piece in the enemyPieceData dictionary
                     enemyPieceData[piece].append({
-                        'controlMoves': controlMovesMethod(self.board.board, pieceRow, pieceColumn)
+                        'controlMoves': controlMovesMethod(self.board.board, pieceRow, pieceColumn, 'Control')
                     })
 
         # Loops through all the values in the enemy piece data dictionary
@@ -379,15 +394,14 @@ class Game:
                 position = self.PiecePositions(piece, oppColour).get(number)
                 if position != None:
                     pieceRow, pieceColumn = position
+                    # Dynamically gets the method to calculate moves for each piece
                     validMovesMethod = getattr(self, piece.lower()).GetValidMoves
-                    # Dynamically gets the method to calculate pin moves for each piece
-                    pinMovesMethod = getattr(self, piece.lower()).GetPinMoves
                     # Adds to each list for each piece (key) in the enemyPieceData dict another dictionary which holds the position,
                     # the validMoves and the pinMoves of that piece
                     enemyPieceData[piece].append({
                         'position': position,
                         'validMoves': validMovesMethod(self.board.board, pieceRow, pieceColumn),
-                        'pinMoves': pinMovesMethod(self.board.board, pieceRow, pieceColumn)
+                        'pinMoves': validMovesMethod(self.board.board, pieceRow, pieceColumn, 'Pin')
                     })
 
         # Checks if the piece is pinned and the king is in check
@@ -562,7 +576,7 @@ class Game:
 
                 # Checks if the King's position is in the valid moves of any enemy piece
                 if (kingRow, kingColumn) in validMoves:
-                    count += 1 # Increments the cound by 1
+                    count += 1 # Increments the count by 1
 
         # Checks if the King's position is in the valid moves of two enemy pieces
         if count == 2:
@@ -694,15 +708,14 @@ class Game:
                 position = self.PiecePositions(piece, oppColour).get(number)
                 if position != None:
                     enemyPieceRow, enemyPieceColumn = position
-                    # Dynamically gets the method for calculating the valid and pin moves of each enemy piece
+                    # Dynamically gets the method for calculating the moves of each enemy piece
                     validMovesMethod = getattr(self, piece.lower()).GetValidMoves
-                    pinMovesMethod = getattr(self, piece.lower()).GetPinMoves
                     # Adds to each list for each piece (key) in the enemyPieceData dict another dictionary which holds the position,
                     # the validMoves and the pinMoves of that piece
                     enemyPieceData[piece].append({
                         'position': position,
                         'validMoves': validMovesMethod(self.board.board, enemyPieceRow, enemyPieceColumn),
-                        'pinMoves': pinMovesMethod(self.board.board, enemyPieceRow, enemyPieceColumn)
+                        'pinMoves': validMovesMethod(self.board.board, enemyPieceRow, enemyPieceColumn, 'Pin')
                     })
 
         # Loops through all the key, value pairs of the enemyPieceData dictionary

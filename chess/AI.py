@@ -7,23 +7,16 @@ def Minimax(position, depth, maxPlayer, game, difficulty, alpha, beta):
     if difficulty == 'Medium' and depth == 0 or game.Checkmate('White') or game.Checkmate('Black') or game.Stalemate():
         return position.Evaluate(), position
 
-    # Checks if the selected difficulty was Easy
-    if difficulty == 'Easy':
-        move = MoveChoice(position, 'Black', game) # Stores the new board with the new move
-
-        # Checks if it's valid
-        if move:
-            return move[0] # Returns the first new board state encountererd
-    
     elif difficulty == 'Hard':
         evaluations = []
         moves = AllMoves(position, 'Black', game)
         for move in moves:
-            evaluations.append(position.HardEvaluation(game))
-        maxEvaluation = max(evaluations)
-        index = evaluations.index(maxEvaluation)
-
-        return moves[index]
+            evaluations.append(move.HardEvaluation(game))
+        
+        for positions in moves:
+            if positions.HardEvaluation(game) == max(evaluations):
+                return positions
+        
   
     elif difficulty == 'Medium':
         if maxPlayer:
@@ -53,7 +46,12 @@ def Minimax(position, depth, maxPlayer, game, difficulty, alpha, beta):
 
             return minEval, bestMove
         
-    
+def EasyMode(position, game):
+    move = MoveChoice(position, 'Black', game) # Stores the new board with the new move
+
+    # Checks if it's valid
+    if move:
+        return move[0] # Returns the first new board state encountererd
         
 def PlayMove(piece, move, board):
     # Checks if the selected piece to move is a King and kingside castling is attempted
@@ -127,7 +125,6 @@ def AllMoves(board, colour, game):
                 boardMoves.append(newBoard)
 
     return boardMoves
-
 
     
 
