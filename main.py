@@ -4,7 +4,7 @@ from chess.Button import Button
 from chess.Constants import SQUARE_HEIGHT, SQUARE_WIDTH, WHITE, GREEN, BLACK, GREY, BLUE, BROWN 
 from chess.GameManager import Game
 from chess.Board import Board
-from chess.AI import Minimax, EasyMode
+from chess.AI import Minimax, EasyMode, MediumMode, HardMode
 from copy import deepcopy
 
 pygame.init()
@@ -38,33 +38,24 @@ def DisplayText(text, font, color, x, y):
     image = font.render(text, True, color)
     gameWindow.blit(image, (x, y))
 
-#This function gets the current row and column from the position of the mouse on the screen
 def SelectedRowColumn(mousePosition):
-    x, y = mousePosition
-    row = y // SQUARE_WIDTH
-    column = x // SQUARE_HEIGHT
+    x, y = mousePosition # Gets the x and y coordinate of the mouse position passed
+    row = y // SQUARE_WIDTH # Determines the row by performing the correct division with the y coordinate
+    column = x // SQUARE_HEIGHT # Determines the column by performing the correct division with the x coordinate
     return row, column
 
 def Play(time, difficulty=None, colour=None, sound=None):
     running = True
     FONT = pygame.font.SysFont('Roboto Mono', 50)
+    boardColours = {'Blue': BLUE, 'Brown': BROWN, 'Green': GREEN}
     targetMenu = None
-    boardColour = None
+    boardColour = boardColours.get(colour)
     
     checkSFXPlayed = False
     playerMoveSFXPlayed = False
     oppMoveSFXPlayed = False
     wtimeSFXPlayed = False
     btimeSFXPlayed = False
-
-    if colour == 'blue':
-        boardColour = BLUE
-
-    elif colour == 'brown':
-        boardColour = BROWN
-
-    elif colour == 'green':
-        boardColour = GREEN
 
     # Initialises timer values for white and black depending on the timer option chosing in the timer selection menu
     whiteSeconds = time * 60
@@ -80,17 +71,16 @@ def Play(time, difficulty=None, colour=None, sound=None):
             moves.append(deepcopy(newBoard))
 
         if game.turn == 'Black' and difficulty == 'Medium':
-            value, newBoard = Minimax(game.GetBoard(), 2, False, game, 'Medium', float('-inf'), float('inf'))
+            newBoard = MediumMode(game.GetBoard(), game)
             game.AIMovement(newBoard)
-            print(value)
             moves.append(deepcopy(newBoard))
 
         if game.turn == 'Black' and difficulty == 'Hard':
-            newBoard = Minimax(game.GetBoard(), 0, False, game, 'Hard', float('-inf'), float('inf'))
+            newBoard = HardMode(game.GetBoard(), game)
             game.AIMovement(newBoard)
             moves.append(deepcopy(newBoard))
 
-        if takeBackButton.Clicked(gameWindow) and difficulty != None:# and count <= 3:
+        if takeBackButton.Clicked(gameWindow) and difficulty != None and count <= 3:
             count += 1
             #print(board.Display(AllMoves(board, 'Black', game)[18]))
             if len(moves) > 1:
@@ -127,21 +117,17 @@ def Play(time, difficulty=None, colour=None, sound=None):
             if event.type == pygame.QUIT:
                 running = False
 
-            #Checks where the mouse button is clicked and uses it to determine the
-            #row and column from the mouse position
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mousePosition = pygame.mouse.get_pos()
-                row, column = SelectedRowColumn(mousePosition)
-                #This method from the Game class is called here and is responsible for
-                #the selection of squares which include selecting the piece and moving it to a square.
-                game.SelectSquare(row, column)
+            # Checks if the mouse has been left clicked
+            if event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0] == 1:
+                mousePosition = pygame.mouse.get_pos() # Gets the current position of the mouse
+                row, column = SelectedRowColumn(mousePosition) # Gets the row and column from the mouse's current position
+                game.SelectSquare(row, column) # Calls the SelectSquare method to allow for piece selection and movement
                 
-            elif event.type == pygame.USEREVENT:
+            if event.type == pygame.USEREVENT:
                 # Checks if it is currently white's turn
                 if game.turn == 'White':
                     # Makes white's time tick down
                     whiteSeconds -= 1
-                # Checks if it is currently black's turn
                 else:
                     # Makes black' time tick down
                     blackSeconds -= 1
@@ -694,17 +680,17 @@ def Settings():
     if targetMenu == 'main menu':
         MainMenu()
     elif targetMenu == 'blue game mode with sound on':
-        GameMode('blue', 'On')
+        GameMode('Blue', 'On')
     elif targetMenu == 'blue game mode with sound off':
-        GameMode('blue', 'Off')
+        GameMode('Blue', 'Off')
     elif targetMenu == 'brown game mode with sound on':
-        GameMode('brown', 'On')
+        GameMode('Brown', 'On')
     elif targetMenu == 'brown game mode with sound off':
-        GameMode('brown', 'Off')
+        GameMode('Brown', 'Off')
     elif targetMenu == 'green game mode with sound on':
-        GameMode('green', 'On')
+        GameMode('Green', 'On')
     elif targetMenu == 'green game mode with sound off':
-        GameMode('green', 'Off')
+        GameMode('Green', 'Off')
 
 def GameMode(colour=None, sound=None):
     targetMenu = None # Variable to keep track of which menu to go to

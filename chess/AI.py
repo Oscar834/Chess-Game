@@ -1,112 +1,82 @@
 from copy import deepcopy
 import random
-import math
+from.BotManager import AIGame
 
-def Minimax(position, depth, maxPlayer, game, difficulty, alpha, beta):
+aiGame = AIGame()
 
-    if difficulty == 'Medium' and depth == 0 or game.Checkmate('White') or game.Checkmate('Black') or game.Stalemate():
-        return position.Evaluate(), position
+def Minimax(position, depth, maxPlayer, game, alpha, beta):
 
-    elif difficulty == 'Hard':
-        evaluations = []
-        moves = AllMoves(position, 'Black', game)
-        for move in moves:
-            evaluations.append(move.HardEvaluation(game))
-        
-        for positions in moves:
-            if positions.HardEvaluation(game) == max(evaluations):
-                return positions
-        
+    if depth == 0 or game.Checkmate('White') or game.Checkmate('Black') or game.Stalemate():
+        return aiGame.MaterialEvaluation(position), position
   
-    elif difficulty == 'Medium':
-        if maxPlayer:
-            maxEval = float('-inf')
-            bestMove = None
-            for move in AllMoves(position, 'White', game):
-                evaluation = Minimax(move, depth - 1, False, game, difficulty, alpha, beta)[0]
-                maxEval = max(maxEval, evaluation)
-                if evaluation == maxEval:
-                    bestMove = move
-                alpha = max(alpha, maxEval)
-                if beta <= alpha:
-                    break
+    if maxPlayer:
+        maxEval = float('-inf')
+        bestMove = None
+        for move in AllMoves(position, 'White', game):
+            evaluation = Minimax(move, depth - 1, False, game, alpha, beta)[0]
+            maxEval = max(maxEval, evaluation)
+            if evaluation == maxEval:
+                bestMove = move
+            alpha = max(alpha, maxEval)
+            if beta <= alpha:
+                break
 
-            return maxEval, bestMove
-        else:
-            minEval = float('inf')
-            bestMove = None
-            for move in AllMoves(position, 'Black', game):
-                evaluation = Minimax(move, depth - 1, True, game, difficulty, alpha, beta)[0]
-                minEval = min(minEval, evaluation)
-                if evaluation == minEval:
-                    bestMove = move
-                beta = min(beta, minEval)
-                if beta <= alpha:
-                    break  
+        return maxEval, bestMove
+    else:
+        minEval = float('inf')
+        bestMove = None
+        for move in AllMoves(position, 'Black', game):
+            evaluation = Minimax(move, depth - 1, True, game, alpha, beta)[0]
+            minEval = min(minEval, evaluation)
+            if evaluation == minEval:
+                bestMove = move
+            beta = min(beta, minEval)
+            if beta <= alpha:
+                break  
 
-            return minEval, bestMove
+        return minEval, bestMove
         
 def EasyMode(position, game):
-    move = MoveChoice(position, 'Black', game) # Stores the new board with the new move
+    moves = AllMoves(position, 'Black', game) # Stores the new board with the new move
 
     # Checks if it's valid
-    if move:
-        return move[0] # Returns the first new board state encountererd
+    if moves:
+        return random.choice(moves) # Returns the first new board state encountererd
+    
+def MediumMode(position, game):
+    evaluations = []
+    moves = AllMoves(position, 'Black', game)
+    for move in moves:
+        evaluations.append(aiGame.MediumEvaluation(move))
+    
+    for positions in moves:
+        if aiGame.MediumEvaluation(positions) == max(evaluations):
+            return positions
         
-def PlayMove(piece, move, board):
+def HardMode(position, game):
+    evaluations = []
+    moves = AllMoves(position, 'Black', game)
+    for move in moves:
+        evaluations.append(aiGame.MediumEvaluation(move))
+    
+    for positions in moves:
+        if aiGame.MediumEvaluation(positions) == max(evaluations):
+            return positions
+        
+def PlayMove(square, move, board):
     # Checks if the selected piece to move is a King and kingside castling is attempted
-    if piece.piece != None and piece.piece.name == 'King' and move == (0, 7) and board.CanCastleKingside('Black'):
+    if square.piece != None and square.piece.name == 'King' and move == (0, 7) and board.CanCastleKingside('Black'):
         board.CastleKingside('Black')
 
     # Checks if the selected piece to move is a King and queenside castling is attempted
-    elif piece.piece != None and piece.piece.name == 'King' and move == (0, 3) and board.CanCastleQueenside('Black'):
+    elif square.piece != None and square.piece.name == 'King' and move == (0, 3) and board.CanCastleQueenside('Black'):
         board.CastleQueenside('Black')
 
     # Handles regular piece movement
     else:
-        board.MovePiece(piece, move[0], move[1])
+        board.MovePiece(square, move[0], move[1])
 
     return board
-
-def PieceList(game, piece):
-    piecesNum = []
-
-    # Gets the count of a chosen black piece
-    pieceCount = game.PlayerPieces('Black').count(piece)
-    
-    # Adds the numbers from the pieceCount to 1 to the piecesNum list.
-    for i in range(pieceCount, 0, -1):
-        piecesNum.append(i)
-
-    return piecesNum[::-1] # Reverts the direction of the list so if it was [3, 2, 1] it becomes [1, 2, 3]
-
-def MoveChoice(board, colour, game):
-    moves = []
-    pieces = game.PlayerPieces(colour) 
-
-    chosenPiece = random.choice(pieces) 
-    validMoves = game.PieceMoves(chosenPiece, colour)
-    key = random.choice(PieceList(game, chosenPiece)) 
-    pos = game.FriendlyPiecePosition(chosenPiece).get(key) 
-
-    if not game.Checkmate(colour):
-        # Reselects another piece if the previous selected piece had no moves
-        while validMoves.get(key) == []:
-            chosenPiece = random.choice(pieces)
-            validMoves = game.PieceMoves(chosenPiece, colour)
-            key = random.choice(PieceList(game, chosenPiece))
-            pos = game.FriendlyPiecePosition(chosenPiece).get(key)
-
-    move = validMoves.get(key) # Stores the valid move for the selected piece
-    tempBoard = deepcopy(board) # Copies the current board state
-    row, column = pos 
-    pieceSquare = tempBoard.GetPiece(row, column) 
-    newMove = random.choice(move)
-    newBoard = PlayMove(pieceSquare, newMove, tempBoard) 
-    if newBoard:
-        moves.append(newBoard) 
-
-    return moves
 
 def AllMoves(board, colour, game):
     boardMoves = []
@@ -120,12 +90,31 @@ def AllMoves(board, colour, game):
                 if position != None:
                     row, column = position
                 tempBoard = deepcopy(board)
-                tempPiece = tempBoard.GetPiece(row, column)
-                newBoard = PlayMove(tempPiece, moves, tempBoard)
+                tempSquare = tempBoard.GetPieceSquare(row, column)
+                newBoard = PlayMove(tempSquare, moves, tempBoard)
                 boardMoves.append(newBoard)
 
     return boardMoves
 
+def LMode(position, game):
+    evaluations = []
+    playedPositions = []
+    moves = AllMoves(position, 'Black', game)
+    for move in moves:
+        eval = aiGame.MediumEvaluation(move)
+        if len(playedPositions) > 0:
+            previousPosition = playedPositions[-1]
+            if aiGame.MaterialEvaluation(move) < aiGame.MaterialEvaluation(previousPosition):
+                evaluations.append(eval - Minimax(move, 3, False, game, float('-inf'), float('inf'))[0])
+            else:
+                evaluations.append(eval)
+        else:
+            evaluations.append(eval)
+    
+    for positions in moves:
+        if aiGame.MediumEvaluation(positions) == max(evaluations):
+            playedPositions.append(positions)
+            return positions
     
 
 

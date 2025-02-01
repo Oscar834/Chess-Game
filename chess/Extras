@@ -1,0 +1,373 @@
+import os
+import operator
+import pygame
+
+operators = {'+': operator.add, '-': operator.sub}
+
+class Piece:
+    def __init__(self, name, colour, image=None, imageRect=None):
+        self.name = name
+        self.colour = colour
+        self.image = image
+        self.DisplayPieceImages()
+        self.imageRect = imageRect
+
+    def DisplayPieceImages(self):
+        self.image = os.path.join(f"Piece Images/{self.colour} {self.name}.png")
+
+class Pawn(Piece):
+    def __init__(self, colour):
+        # Using inheritance so I don't have to write all the code in the __init__ method for each piece.
+        super().__init__('Pawn', colour)
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+        currentSquare = board[row][column]
+
+        # Checks the colour of the piece at the current row and column
+        if currentSquare.piece.colour == 'White':
+            direction = -1 # White moves up
+        else:
+            direction = 1 # Black moves down
+
+         # Checks if the pawns are on their starting rows to allow them move two squares up but checks if both squares are empty first
+        if (currentSquare.piece.colour == 'White' and row == 6) or (currentSquare.piece.colour == 'Black' and row == 1):
+            if board[row + direction][column].piece is None and board[row + 2 * direction][column].piece is None:
+                moves.append((row + 2 * direction, column))
+        
+        # Allows the pawns move one square up as normal
+        if 0 <= row + direction <= 7 and board[row + direction][column].piece is None:
+            moves.append((row + direction, column))
+        
+            # Responsible for diagonal captures
+            for col in [-1, 1]:
+                newColumn = column + col
+                
+                # Checks if the diagonal capture squares are within bounds of the board
+                if 1 <= newColumn <= 8:
+                    newSquare = board[row + direction][newColumn]
+
+                    # Checks to ensure an opponent piece is present for a diagonal capture to be possible
+                    if newSquare.piece != None and newSquare.piece.colour != currentSquare.piece.colour:
+                        moves.append((row + direction, newColumn))
+                
+        return moves
+    
+    def GetControlMoves(self, board, row, column):
+        moves = []
+
+        if board[row][column].piece.colour == 'White':
+            direction = -1 #White moves up
+        else:
+            direction = 1 #Black moves down
+
+        for col in [-1, 1]:
+            newColumn = column + col
+            
+            #Checks if the diagonal capture squares are within bounds of the board
+            if 1 <= newColumn <= 8 and row < 7:
+                square = board[row + direction][newColumn]
+                piece = square.piece
+                #Checks if the square is empty or another piece of same colour is there so it can defend that piece from the king.
+                if piece == None or (piece.colour == board[row][column].piece.colour):
+                    moves.append((row + direction, newColumn))
+                
+        return moves
+
+class Bishop(Piece):
+    def __init__(self, colour):
+        super().__init__('Bishop', colour)
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+
+        # The pair (+, +) is responsible for getting the moves for the bishop in the top-left to bottom-right diagonal
+        # The pair(-, -) is responsible for getting the moves for the bishop in the bottom-right to top-left diagonal
+        # The pair (+, -) is responsible foe getting the moves for the bishop in the top-right to bottom-left diagonal
+        # The pair (-, +) is responsible for getting the moves for the bishop in the bottom-left to top-right diagonal
+        operatorPairs = [('+', '+'), ('-', '-'), ('+', '-'), ('-', '+')]
+
+        for ops in operatorPairs:
+            for direction in range(1, 8): # This for loop with the help of the first loops checks the squares in all directions
+                op1 = operators[ops[0]] # Gets the first element of the tuple
+                op2 = operators[ops[1]] # Gets the second element of the tuple
+                newRow = op1(row, direction) # Same as newRow = row + direction (operator depends on first element of each tuple iterated)
+                newColumn = op2(column, direction) # Same as newColumn  = row + direction (operator depends on second element of each tuple iterated)
+
+                # Checks to see if the new row and column to move to is within the bounds of the board
+                if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
+                    newSquare = board[newRow][newColumn] # It would be None if the square is empty
+                    currentSquare = board[row][column]
+
+                    # Checks if the square to move to is empty
+                    if newSquare.piece == None:
+                        moves.append((newRow, newColumn))
+                    # Checks if an enemy piece has been encountered
+                    elif currentSquare.piece.colour != newSquare.piece.colour:
+                        moves.append((newRow, newColumn))
+                        # If it encounters an enemy piece, it stops so no more moves are added along that direction
+                        break
+                    else:
+                        # It stops if it encounters a friendly piece
+                        break
+
+        return moves
+
+class Knight(Piece):
+    def __init__(self, colour):
+        super().__init__('Knight', colour)
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+
+        operatorPairs = [('-', '+'), ('+', '+')]
+        direction1 = 1
+        direction2 = 2
+
+        for ops in operatorPairs:
+            # This is responsible for the L-Movement that is 2 squares up/down and then 1 square left/right
+            for col in [-1, 1]:
+                op1 = operators[ops[0]]
+                op2 = operators[ops[1]]
+                newRow = op1(row, direction2) # Gets the row 2 squares up (op1 = -) or 2 squares down (op1 = +)
+                newColumn = op2(column, col) # Gets the column 1 to the left if col = - or 1 to the right if col = 1
+
+                if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
+                    newSquare = board[newRow][newColumn]
+                    currentSquare = board[row][column]
+
+                    # Checks if the square encountered is empty or contains an enemy piece
+                    if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
+                        moves.append((newRow, newColumn))
+
+            # This is responsible for the L-Movement that is 1 square up/down and then 2 squares left/right
+            for col in [-2, 2]:
+                newRow = op1(row, direction1) # Gets the row 1 squares up (op1 = -) or 1 squares down (op1 = +)
+                newColumn = op2(column, col) # Gets the column 2 to the left if col = - or 2 to the right if col = 1
+
+                if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
+                    newSquare = board[newRow][newColumn]
+
+                    # Checks if the square encountered is empty or contains an enemy piece
+                    if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
+                        moves.append((newRow, newColumn))
+
+        return moves
+   
+class Rook(Piece):
+    def __init__(self, colour):
+        super().__init__('Rook', colour)
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+
+        operatorPairs = ['+', '-'] # + is for down/right, - is for up/left
+
+        for ops in operatorPairs:
+            # Responsible for vertical moves
+            for direction in range(1, 8):
+                op1 = operators[ops] # Maps the string in operator pairs to the correct operator in the operators dictionary
+                newRow = op1(row, direction) # Performs the correct operation
+
+                if 0 <= newRow <= 7:
+                    newSquare = board[newRow][column]
+                    currentSquare = board[row][column]
+                    # Checks if the encountered square is empty
+                    if newSquare.piece == None:
+                        moves.append((newRow, column))
+                    # Checks if the new square contains an enemy piece
+                    elif currentSquare.piece.colour != newSquare.piece.colour:
+                        moves.append((newRow, column))
+                        # If it encounters an enemy piece, it stops so no more moves are added along that direction
+                        break
+                    else:
+                        # It stops if it encounters a friendly piece
+                        break
+                    
+            # Responsible for horizontal moves
+            for direction in range(1, 8):
+                newColumn = op1(column, direction) # Perform the correct operation on column and direction
+
+                if 1 <= newColumn <= 8:
+                    newSquare = board[row][newColumn]
+                    # Checks if the new square is empty
+                    if newSquare.piece == None:
+                        moves.append((row, newColumn))
+                    # Checks if an enemy piece has been encountered
+                    elif currentSquare.piece.colour != newSquare.piece.colour:
+                        moves.append((row, newColumn))
+                        # If it encounters an enemy piece, it stops so no more moves are added along that direction
+                        break
+                    else:
+                        # It stops if it encounters a friendly piece
+                        break
+                    
+        return moves
+
+class Queen(Piece):
+    def __init__(self, colour):
+        super().__init__('Queen', colour)
+        self.rook = Rook(colour) # Instantiates the rook piece class so it can use its methods
+        self.bishop = Bishop(colour) # Instantiates the bishop piece class so it can use it methods
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+
+        # The queen just has the moves of the rook and a bishop combined
+        moves.extend(self.rook.GetValidMoves(board, row, column))
+        moves.extend(self.bishop.GetValidMoves(board, row, column))
+       
+        return moves
+
+class King(Piece):
+    def __init__(self, colour):
+        super().__init__('King', colour)
+
+    def GetValidMoves(self, board, row, column):
+        moves = []
+        direction = 1
+        
+        #Responsible for movement in the top left and bottom right directions
+        for dir in [-1, 1]:
+            newRow = row + dir
+            newColumn = column + dir
+        
+            #Checks if the new row and new column are within the bounds of the board
+            if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
+                square = board[newRow][newColumn]
+                piece = square.piece
+                piece2 = board[row][column].piece
+
+                if type == None:
+                    #Checks if the square it's moving to is empty
+                    if piece == None:
+                        moves.append((newRow, newColumn))
+                    #Checks if the piece at the square it's moving to is of a different colour and not a king
+                    elif piece2.colour != piece.colour:
+                        moves.append((newRow, newColumn))
+                elif type == 'Control':
+                    #Checks if the square it's moving to is empty
+                    if piece == None:
+                        moves.append((newRow, newColumn))
+                    #Checks if the piece at the square it's moving to is of a different colour and not a king
+                    elif piece2.colour == piece.colour:
+                        moves.append((newRow, newColumn))
+
+        #Responsible for movement in the horizontal left and right directions
+        for dir in [-1, 1]:
+            newColumn = column + dir
+
+            if 1 <= newColumn <= 8:
+                square = board[row][newColumn]
+                piece = square.piece
+                piece2 = board[row][column].piece
+
+                if type == None:
+                    if piece == None: 
+                        moves.append((row, newColumn))
+                    elif piece2.colour != piece.colour:
+                        moves.append((row, newColumn))
+                elif type == 'Control':
+                    if piece == None: 
+                        moves.append((row, newColumn))
+                    elif piece2.colour == piece.colour:
+                        moves.append((row, newColumn))
+
+        #Responsible for movement in the vertical top and bottom directions
+        for dir in [-1, 1]:
+            newRow = row + dir
+
+            if 0 <= newRow <= 7:
+                square = board[newRow][column]
+                piece = square.piece
+                piece2 = board[row][column].piece
+
+                if type == None:
+                    if piece == None:
+                        moves.append((newRow, column))
+                    elif piece2.colour != piece.colour:
+                        moves.append((newRow, column))
+                elif type == 'Control':
+                    if piece == None:
+                        moves.append((newRow, column))
+                    elif piece2.colour == piece.colour:
+                        moves.append((newRow, column))
+
+        #Responsible for movement in the bottom left direction
+        if 0 <= row + direction <= 7 and 1 <= column - direction <= 8:
+            square = board[row + direction][column - direction]
+            piece = square.piece
+            piece2 = board[row][column].piece
+
+            if type == None:
+                if piece == None:
+                    moves.append((row + direction, column - direction))
+                elif piece2.colour != piece.colour:
+                    moves.append((row + direction, column - direction))
+            elif type == 'Control':
+                if piece == None:
+                    moves.append((row + direction, column - direction))
+                elif piece2.colour == piece.colour:
+                    moves.append((row + direction, column - direction))
+
+        #Responsible for movement in the top right direction
+        if 0 <= row - direction <= 7 and 1 <= column + direction <= 8:
+            square = board[row - direction][column + direction]
+            piece = square.piece
+            piece2 = board[row][column].piece
+
+            if type == None:
+                if piece == None:
+                    moves.append((row - direction, column + direction))
+                elif piece2.colour != piece.colour:
+                    moves.append((row - direction, column + direction))
+            elif type == 'Control':
+                if piece == None:
+                    moves.append((row - direction, column + direction))
+                elif piece2.colour == piece.colour:
+                    moves.append((row - direction, column + direction))
+
+        return moves
+    
+import pygame
+import sys
+from chess.Button import Button
+from chess.Constants import BLACK, SQUARE_HEIGHT, SQUARE_WIDTH
+from chess.GameManager import Game
+
+pygame.init()
+gameWindow = pygame.display.set_mode((1000, 800))
+gameIcon = pygame.image.load('images/king.png')
+pygame.display.set_icon(gameIcon)
+
+pygame.display.set_caption('Chess')
+
+mainText = pygame.font.SysFont('Arial', 120, bold=True)
+game = Game(gameWindow) # Creates an instance of the game class and passes the game window as the screen parameter
+
+# Function that first converts the text into an image in order to allow it to be displayed on the screen
+def DisplayText(text, font, color, x, y):
+    image = font.render(text, True, color)
+    gameWindow.blit(image, (x, y))
+
+def SelectedRowColumn(mousePosition):
+    x, y = mousePosition # Gets the x and y coordinates of the mousePosition passed
+    row = y // SQUARE_WIDTH # Determines the row by performing the correct division with the y coordinate
+    column = x // SQUARE_HEIGHT # Determines the column by performing the correct division with the x coordinate
+    return row, column
+
+def Play():
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            # Checks if the mouse has been left clicked
+            if event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0] == 1:
+                mousePosition = pygame.mouse.get_pos() # Gets the current position of the mouse
+                row, column = SelectedRowColumn(mousePosition) # Gets the row and column from the mouse's current position
+                game.SelectSquare(row, column) # Calls the SelectSquare method to allow for piece selection and movement
+
+        game.UpdateScreen() # Calls the UpdateScreen from the game class so it can carry out the visuals display on the screen

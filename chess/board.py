@@ -101,10 +101,10 @@ class Board:
                         piece.imageRect = image.get_rect(center=imageCentre)
                         screen.blit(image, piece.imageRect) # Displays the piece onto the screen
 
-    def GetPiece(self, row, column):
+    def GetPieceSquare(self, row, column):
         # Ensures it stays within the bounds of the board to prevent errors
         if 0 <= row <= 7 and 1 <= column <= 8:
-            return self.board[row][column]
+            return self.board[row][column] # Returns the square of the board at the given row and column. (N.B each square has a piece attribute)
 
     def MovePiece(self, pieceSquare, newRow, newColumn):
         piece = pieceSquare.piece
@@ -115,13 +115,12 @@ class Board:
 
     def PieceAtSquare(self, row, column):
         if 0 <= row <= 7 and 1 <= column <= 8:
-            # Assigns the variable square as an instance of the BoardSquares class
-            square = self.board[row][column]
-            # Return the piece attribute of the BoardSquares class
-            return square.piece
+            # Assigns the variable square as the value return from the GetPieceSquare method
+            square = self.GetPieceSquare(row, column)
+            return square.piece # Return the piece attribute stored at the current square
         
         return None
-
+    
     def CanCastleKingside(self, colour):
         if colour == 'White':
             row = 7
@@ -213,76 +212,3 @@ class Board:
     def Remove(self, row, column):
         square = self.board[row][column]
         square.piece = None
-    
-    def Material(self, colour):
-        materialValue = 0
-
-        for row in range(0, 8):
-            for column in range(1, 9):
-                if self.board[row][column].piece != None and self.board[row][column].piece.colour == colour:
-                    materialValue += self.board[row][column].piece.value
-
-        return materialValue
-    
-    def PiecePositions(self, piece, colour):
-        pieces = {1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}
-        positions = []
-
-        for row in range(0, 8):
-            for column in range(1, 9):
-                # Row and column for enemy piece added to positions list
-                if self.board[row][column].piece != None and self.board[row][column].piece.name == piece\
-                and self.board[row][column].piece.colour == colour:
-                    positions.append((row, column))
-
-                    for key, value in zip(pieces.keys(), positions):
-                        pieces[key] = value
-
-        return pieces
-
-    def Positional(self, colour):
-        value = 0
-        if colour == 'White':
-            row = 4
-        else:
-            row = 3
-        centralSquares = [(row, 3), (row, 4), (row, 5)]
-
-        for val in centralSquares:
-            for values in self.PiecePositions('Pawn', colour).values():
-                if values == val:
-                    value += 2
-            #if self.board[val[0]][val[1]].piece != None and self.board[val[0]][val[1]].piece.name == 'Pawn'\
-            #and self.board[val[0]][val[1]].piece.colour == colour:
-                #value += 2
-
-        return value
-    
-    def Evaluate(self):
-        materialCount = self.Material('White') - self.Material('Black')
-        return materialCount + (self.Positional('White') - self.Positional('Black'))
-    
-    def HardEvaluation(self, game):
-        numMoves = 0
-        centralSquares = [(4, 3), (4, 4), (4, 5), (4, 6)]
-        positionalScore = 0
-
-        for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
-            validMoves = game.PieceMoves(piece, 'Black')
-
-            for move in validMoves.values():
-                numMoves += len(move)
-
-        pawnMoves = game.PieceMoves('Pawn', 'Black')
-
-        for moves in pawnMoves.values():
-            for move in moves:
-                if move in centralSquares:
-                    positionalScore += 3
-
-        mobilityScore = math.log(numMoves)
-        kingRow, kingColumn = game.PiecePositions('King', 'Black').get(1)
-        queenMoves = game.queen.GetValidMoves(game.board.board, kingRow, kingColumn)
-        mobilityScore -= 0.5 * len(queenMoves)
-
-        return mobilityScore + self.Material('Black') + positionalScore

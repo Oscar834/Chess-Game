@@ -22,7 +22,7 @@ class Pawn(Piece):
 
     def GetValidMoves(self, board, row, column, type=None):
         moves = []
-        #Checks the colour of the piece at the current row and column
+        # Checks the colour of the piece at the current row and column
         if board[row][column].piece.colour == 'White':
             direction = -1 # White moves up
         else:
@@ -34,11 +34,11 @@ class Pawn(Piece):
         else:
             # Checks if the pawns are on their starting rows to allow them move two squares up but checks if both squares are empty first
             if (board[row][column].piece.colour == 'White' and row == 6) or (board[row][column].piece.colour == 'Black' and row == 1):
-                if board[row + direction][column].piece is None and board[row + 2 * direction][column].piece is None:
+                if board[row + direction][column].piece == None and board[row + 2 * direction][column].piece == None:
                     moves.append((row + 2 * direction, column))
             
             # Allows the pawns move one square up as normal
-            if 0 <= row + direction <= 7 and board[row + direction][column].piece is None:
+            if 0 <= row + direction <= 7 and board[row + direction][column].piece == None:
                 moves.append((row + direction, column))
 
             # Responsible for diagonal captures
@@ -47,11 +47,11 @@ class Pawn(Piece):
                 
                 # Checks if the diagonal capture squares are within bounds of the board
                 if 1 <= newColumn <= 8 and row < 7:
-                    newPiece = board[row + direction][newColumn].piece
-                    currentPiece = board[row][column].piece
+                    newSquare = board[row + direction][newColumn]
+                    currentSquare = board[row][column]
 
                     # Checks to ensure an opponent piece is present for a diagonal capture to be possible
-                    if newPiece != None and newPiece.colour != currentPiece.colour:
+                    if newSquare.piece != None and newSquare.piece.colour != currentSquare.piece.colour:
                         moves.append((row + direction, newColumn))
                 
         return moves
@@ -69,10 +69,10 @@ class Pawn(Piece):
             
             #Checks if the diagonal capture squares are within bounds of the board
             if 1 <= newColumn <= 8 and row < 7:
-                square = board[row + direction][newColumn]
-                piece = square.piece
+                newSquare = board[row + direction][newColumn]
+                currentSquare = board[row][column]
                 #Checks if the square is empty or another piece of same colour is there so it can defend that piece from the king.
-                if piece is None or (piece.colour == board[row][column].piece.colour):
+                if newSquare.piece == None or (newSquare.piece.colour == currentSquare.piece.colour):
                     moves.append((row + direction, newColumn))
                 
         return moves
@@ -96,15 +96,15 @@ class Bishop(Piece):
 
                 # Checks to see if the new row and column to move to is within the bounds of the board
                 if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
-                    newPiece = board[newRow][newColumn].piece # It would be None if the square is empty
-                    currentPiece = board[row][column].piece
+                    newSquare = board[newRow][newColumn]
+                    currentSquare = board[row][column]
 
                     if type == None:
-                        #Checks if the square to move to is empty
-                        if newPiece is None:
+                        # Checks if the square to move to is empty
+                        if newSquare.piece == None:
                             moves.append((newRow, newColumn))
                         # Checks if the colour of the current piece is not the same as a piece encountered
-                        elif currentPiece.colour != newPiece.colour:
+                        elif currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, newColumn))
                             # If it encounters a piece of the opposite colour, it stops so no more moves are added along that direction
                             break
@@ -114,15 +114,15 @@ class Bishop(Piece):
 
                     elif type == 'Control':
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((newRow, newColumn))
                         # Checks if the colour of the current piece is the same as the piece encountered so it can defend if from the king
-                        elif currentPiece.colour == newPiece.colour:
+                        elif currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, newColumn))
                             # If it encounters a piece of the same colour, it stops so no more moves are added along that direction
                             break
                         # If the piece it encounters is a king, it skips that square and adds the ones behind it.
-                        elif newPiece.name == 'King' and currentPiece.colour != newPiece.colour:
+                        elif newSquare.piece.name == 'King' and currentSquare.piece.colour != newSquare.piece.colour:
                             continue
                         else:
                             #If it encounters a piece of opposite colour that is not a king, it stops.
@@ -130,13 +130,13 @@ class Bishop(Piece):
 
                     elif type == 'Pin':
                         # Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((newRow, newColumn))
                         # If it encounters a piece of opposite colour that is not a king it skips it
-                        elif currentPiece.colour != newPiece.colour and newPiece.name != 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name != 'King':
                             continue
                         # If it encounters a king of opposite colour, it adds it to the moves list and stops
-                        elif currentPiece.colour != newPiece.colour and newPiece.name == 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name == 'King':
                             moves.append((newRow, newColumn))
                             break
                         else:
@@ -147,7 +147,7 @@ class Knight(Piece):
     def __init__(self, colour):
         super().__init__('Knight', colour, 3.0)
 
-    def GetValidMoves(self, board, row, column, control=None):
+    def GetValidMoves(self, board, row, column, type=None):
         moves = []
 
         operatorPairs = [('-', '+'), ('+', '+')]
@@ -162,20 +162,16 @@ class Knight(Piece):
                 newColumn = op2(column, col)
 
                 if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
-                    newPiece = board[newRow][newColumn].piece
-                    currentPiece = board[row][column].piece
-                    # Checks if the square encountered is empty
-                    if control == None:
-                        if newPiece is None:
+                    newSquare = board[newRow][newColumn]
+                    currentSquare = board[row][column]
+
+                    if type == None:
+                        # Checks if the square encountered is empty or contains an enemy piece
+                        if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, newColumn))
-                        #Checks if the piece in the valid square is not the same colour as the current piece
-                        elif currentPiece.colour != newPiece.colour:
-                            moves.append((newRow, newColumn))
-                    elif control == 'Control':
-                        if newPiece is None:
-                            moves.append((newRow, newColumn))
-                        #Checks if the piece in the valid square is not the same colour as the current piece
-                        elif currentPiece.colour == newPiece.colour:
+                    elif type == 'Control':
+                        # Checks if the square encountered is empty or contains a friendly piece
+                        if newSquare.piece == None or currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, newColumn))
 
             for col in [-2, 2]:
@@ -183,22 +179,18 @@ class Knight(Piece):
                 newColumn = op2(column, col)
 
                 if 0 <= newRow <= 7 and 1 <= newColumn <= 8:
-                    newPiece = board[newRow][newColumn].piece
-                    currentPiece = board[row][column].piece
-                    # Checks if the square encountered is empty
-                    if control == None:
-                        if newPiece is None:
+                    newSquare = board[newRow][newColumn]
+                    currentSquare = board[row][column]
+
+                    if type == None:
+                        # Checks if the square encountered is empty or contains an enemy piece
+                        if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, newColumn))
-                        #Checks if the piece in the valid square is not the same colour as the current piece
-                        elif currentPiece.colour != newPiece.colour:
+                    elif type == 'Control':
+                        # Checks if the square encountered is empty or contains a friendly piece
+                        if newSquare.piece == None or currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, newColumn))
-                    elif control == 'Control':
-                        if newPiece is None:
-                            moves.append((newRow, newColumn))
-                        #Checks if the piece in the valid square is not the same colour as the current piece
-                        elif currentPiece.colour == newPiece.colour:
-                            moves.append((newRow, newColumn))
-        
+
         return moves
    
 class Rook(Piece):
@@ -217,15 +209,15 @@ class Rook(Piece):
                 newRow = op1(row, direction)
 
                 if 0 <= newRow <= 7:
-                    newPiece = board[newRow][column].piece
-                    currentPiece = board[row][column].piece
+                    newSquare = board[newRow][column]
+                    currentSquare = board[row][column]
                     if type == None:
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((newRow, column))
                         #Checks if the colour of the piece at the current square is not the same as the piece
                         #in one of the valid squares.
-                        elif currentPiece.colour != newPiece.colour:
+                        elif currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, column))
                             #If it encounters a piece of the opposite colour, it stops so no more moves are added along that direction
                             break
@@ -234,27 +226,27 @@ class Rook(Piece):
                             break
                     elif type == 'Control':
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((newRow, column))
                         #Checks if piece in valid square is same colour so it can defend it.
-                        elif currentPiece.colour == newPiece.colour:
+                        elif currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, column))
                             #If it encounters a piece of the same colour, it stops so no more moves are added along that direction
                             break
                         #If it encounters a king, it skips and adds the squares behind it.
-                        elif newPiece.name == 'King' and currentPiece.colour != newPiece.colour:
+                        elif newSquare.piece.name == 'King' and currentSquare.piece.colour != newSquare.piece.colour:
                             continue
                         else:
                             break
                     elif type == 'Pin':
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((newRow, column))
                         #Checks if the colour of the piece at the current square is not the same as the piece
                         #in one of the valid squares.
-                        elif currentPiece.colour != newPiece.colour and newPiece.name != 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name != 'King':
                             continue
-                        elif currentPiece.colour != newPiece.colour and newPiece.name == 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name == 'King':
                             moves.append((newRow, column))
                             #It stops if it encounters a piece of the same colour
                             break 
@@ -265,39 +257,39 @@ class Rook(Piece):
                 newColumn = op1(column, direction)
 
                 if 1 <= newColumn <= 8:
-                    newPiece = board[row][newColumn].piece
-                    currentPiece = board[row][column].piece
+                    newSquare = board[row][newColumn]
+                    currentSquare = board[row][column]
                     if type == None:
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((row, newColumn))
-                        elif currentPiece.colour != newPiece.colour:
+                        elif currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((row, newColumn))
                             break
                         else:
                             break
                     elif type == 'Control':
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((row, newColumn))
                         #Checks if piece in valid square is same colour so it can defend it.
-                        elif currentPiece.colour == newPiece.colour:
+                        elif currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((row, newColumn))
                             #If it encounters a piece of the same colour, it stops so no more moves are added along that direction
                             break
                         #If it encounters a king, it skips and adds the squares behind it.
-                        elif newPiece.name == 'King' and currentPiece.colour != newPiece.colour:
+                        elif newSquare.piece.name == 'King' and currentSquare.piece.colour != newSquare.piece.colour:
                             continue
                         else:
                             break
                     elif type == 'Pin':
                         #Checks if the square is empty
-                        if newPiece is None:
+                        if newSquare.piece == None:
                             moves.append((row, newColumn))
                         #Checks if the colour of the piece at the current square is not the same as the piece
                         #in one of the valid squares.
-                        elif currentPiece.colour != newPiece.colour and newPiece.name != 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name != 'King':
                             continue
-                        elif currentPiece.colour != newPiece.colour and newPiece.name == 'King':
+                        elif currentSquare.piece.colour != newSquare.piece.colour and newSquare.piece.name == 'King':
                             moves.append((row, newColumn))
                             #It stops if it encounters a piece of the same colour
                             break 
@@ -346,14 +338,14 @@ class King(Piece):
 
                 if type == None:
                     #Checks if the square it's moving to is empty
-                    if piece is None:
+                    if piece == None:
                         moves.append((newRow, newColumn))
                     #Checks if the piece at the square it's moving to is of a different colour and not a king
                     elif piece2.colour != piece.colour:
                         moves.append((newRow, newColumn))
                 elif type == 'Control':
                     #Checks if the square it's moving to is empty
-                    if piece is None:
+                    if piece == None:
                         moves.append((newRow, newColumn))
                     #Checks if the piece at the square it's moving to is of a different colour and not a king
                     elif piece2.colour == piece.colour:
@@ -369,12 +361,12 @@ class King(Piece):
                 piece2 = board[row][column].piece
 
                 if type == None:
-                    if piece is None: 
+                    if piece == None: 
                         moves.append((row, newColumn))
                     elif piece2.colour != piece.colour:
                         moves.append((row, newColumn))
                 elif type == 'Control':
-                    if piece is None: 
+                    if piece == None: 
                         moves.append((row, newColumn))
                     elif piece2.colour == piece.colour:
                         moves.append((row, newColumn))
@@ -389,12 +381,12 @@ class King(Piece):
                 piece2 = board[row][column].piece
 
                 if type == None:
-                    if piece is None:
+                    if piece == None:
                         moves.append((newRow, column))
                     elif piece2.colour != piece.colour:
                         moves.append((newRow, column))
                 elif type == 'Control':
-                    if piece is None:
+                    if piece == None:
                         moves.append((newRow, column))
                     elif piece2.colour == piece.colour:
                         moves.append((newRow, column))
@@ -406,12 +398,12 @@ class King(Piece):
             piece2 = board[row][column].piece
 
             if type == None:
-                if piece is None:
+                if piece == None:
                     moves.append((row + direction, column - direction))
                 elif piece2.colour != piece.colour:
                     moves.append((row + direction, column - direction))
             elif type == 'Control':
-                if piece is None:
+                if piece == None:
                     moves.append((row + direction, column - direction))
                 elif piece2.colour == piece.colour:
                     moves.append((row + direction, column - direction))
@@ -423,12 +415,12 @@ class King(Piece):
             piece2 = board[row][column].piece
 
             if type == None:
-                if piece is None:
+                if piece == None:
                     moves.append((row - direction, column + direction))
                 elif piece2.colour != piece.colour:
                     moves.append((row - direction, column + direction))
             elif type == 'Control':
-                if piece is None:
+                if piece == None:
                     moves.append((row - direction, column + direction))
                 elif piece2.colour == piece.colour:
                     moves.append((row - direction, column + direction))
@@ -440,7 +432,7 @@ class King(Piece):
         #Checks if it's black or white by checking the row
         if (row == 7 or row == 0) and column == 5:
             #Checks if the squares between the king and the rook on the right are empty
-            if board[row][column + 1].piece is None and board[row][column + 2].piece is None:
+            if board[row][column + 1].piece == None and board[row][column + 2].piece == None:
                 moves.append((row, column + 2))
 
         return moves
@@ -450,7 +442,7 @@ class King(Piece):
         #Checks if it's black or white by checking the row
         if (row == 7 or row == 0) and column == 5:
             #Checks if the three squares between the king and rook on the left are empty
-            if board[row][column - 1].piece is None and board[row][column - 2].piece is None and board[row][column - 3].piece is None:
+            if board[row][column - 1].piece == None and board[row][column - 2].piece == None and board[row][column - 3].piece == None:
                 moves.append((row, column - 2))
 
         return moves
