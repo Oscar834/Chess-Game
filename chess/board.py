@@ -1,7 +1,6 @@
 import pygame
 from .Constants import WHITE, SQUARE_WIDTH, SQUARE_HEIGHT, DGREY
 from .Pieces import *
-import math
 
 class BoardSquares:
     def __init__(self, row, column, piece=None):
@@ -36,9 +35,9 @@ class Board:
             ) + "\n"
         print(board_str)
 
-    def DrawBoard(self, screen, colour):
-        # Completely covers the screen in the chosen colour
-        screen.fill(colour)
+    def DrawBoard(self, screen, colour): 
+        # Completely covers the screen in the chosen colour 
+        screen.fill(colour) 
         for i in range(10):
             # Covers the first column in dark grey
             pygame.draw.rect(screen, DGREY, (0, i * SQUARE_HEIGHT, SQUARE_WIDTH, SQUARE_HEIGHT))
@@ -46,7 +45,7 @@ class Board:
             # Covers the last column in dark grey
             pygame.draw.rect(screen, DGREY, (900, j * SQUARE_HEIGHT, SQUARE_WIDTH, SQUARE_HEIGHT))
         for rows in range(8):
-            # Creates the alternating pattern of white and green
+            # Creates the alternating pattern of white and the chosen colour
             for columns in range((rows % 2) + 1, 9, 2):
                 pygame.draw.rect(screen, WHITE, (columns * SQUARE_WIDTH, rows * SQUARE_HEIGHT, SQUARE_WIDTH, SQUARE_HEIGHT))
 
@@ -93,11 +92,11 @@ class Board:
         for row in range(8):
             for column in range(1, 9):
                     square = self.board[row][column]
-                    #Checks if a piece occupies the current row and column
+                    # Checks if a piece occupies the current row and column
                     if square.PiecePresent():
                         piece = square.piece
                         image = pygame.image.load(piece.image) # Loads the piece image using the piece class
-                        imageCentre = column * SQUARE_WIDTH + SQUARE_HEIGHT // 2, row * SQUARE_HEIGHT + SQUARE_WIDTH // 2
+                        imageCentre = (column * SQUARE_WIDTH + SQUARE_HEIGHT // 2, row * SQUARE_HEIGHT + SQUARE_WIDTH // 2)
                         piece.imageRect = image.get_rect(center=imageCentre)
                         screen.blit(image, piece.imageRect) # Displays the piece onto the screen
 
@@ -122,92 +121,90 @@ class Board:
         return None
     
     def CanCastleKingside(self, colour):
+        # Checks the colour to determine the row correctly
         if colour == 'White':
             row = 7
         else:
             row = 0
 
         # Checks if the the King and kingside rook are on their starting squares and there are no pieces between them
+        # and also checks that they are the same colour of the current player to prevent a player from castling on is opponent's side
         if self.board[row][5].piece != None and self.board[row][8].piece != None and self.board[row][5].piece.name == 'King'\
-        and self.board[row][8].piece.name == 'Rook' and self.board[row][5].piece.colour == self.board[row][8].piece.colour\
-        and self.board[row][6].piece is None and self.board[row][7].piece is None:
+        and self.board[row][8].piece.name == 'Rook' and self.board[row][5].piece.colour == colour\
+        and self.board[row][8].piece.colour == colour and self.board[row][6].piece == None and self.board[row][7].piece == None:
             return True
         
         return False
             
     def CanCastleQueenside(self, colour):
+        # Checks the colour to determine the row correctly
         if colour == 'White':
             row = 7
         else:
             row = 0
 
         # Checks if the the King and queenside rook are on their starting squares and there are no pieces between them
+        # and also checks that they are the same colour of the current player to prevent a player from castling on is opponent's side
         if self.board[row][5].piece != None and self.board[row][1].piece != None and self.board[row][5].piece.name == 'King'\
-        and self.board[row][1].piece.name == 'Rook' and self.board[row][5].piece.colour == self.board[row][1].piece.colour\
-        and self.board[row][4].piece is None and self.board[row][3].piece is None and self.board[row][2].piece is None:
+        and self.board[row][1].piece.name == 'Rook' and self.board[row][5].piece.colour == colour and self.board[row][1].piece.colour == colour\
+        and self.board[row][4].piece == None and self.board[row][3].piece == None and self.board[row][2].piece == None:
             return True
         
         return False
             
     def CastleKingside(self, colour):
+        # Checks the colour to determine the row correctly
         if colour == 'White':
             row = 7
         else:
             row = 0
-        kingSquare = self.board[row][5] # Stores the piece object on the king's starting square
-        rookSquare = self.board[row][8] # Stores the piece object on the kingisde rook's starting square
+
+        kingSquare = self.board[row][5] # Stores the starting square of the king so it can move the piece stored there
+        rookSquare = self.board[row][8] # Stores the starting square of the king's rook so it can move the piece stored there
 
         # Checks if kingside castling is possible
         if self.CanCastleKingside(colour):
-            if kingSquare.piece.colour == 'White' and rookSquare.piece.colour == 'White':
-                # Uses the MovePiece method to simultaneously move both the king and rook to specific squares
-                self.MovePiece(kingSquare, row, 7)
-                self.MovePiece(rookSquare, row, 6)
-            elif kingSquare.piece.colour == 'Black' and rookSquare.piece.colour == 'Black':
-                self.MovePiece(kingSquare, row, 7)
-                self.MovePiece(rookSquare, row, 6)
-        
+            # Uses the MovePiece method to simultaneously move both the king and rook to the kingside castle position
+            self.MovePiece(kingSquare, row, 7)
+            self.MovePiece(rookSquare, row, 6)
+
     def CastleQueenside(self, colour):
+        # Checks the colour to determine the row correctly
         if colour == 'White':
             row = 7
         else:
             row = 0
-        kingSquare = self.board[row][5] # Stores the piece object on the king's starting square
-        rookSquare = self.board[row][1] # Stores the piece object on the queenside rook's starting square
 
-        # Checks if kingside castling is possible
+        kingSquare = self.board[row][5] # Stores the starting square of the king so it can move the piece stored there
+        rookSquare = self.board[row][1] # Stores the starting square of the queen's rook so it can move the piece stored there
+
+        # Checks if queenside castling is possible
         if self.CanCastleQueenside(colour):
-            if kingSquare.piece.colour == 'White' and rookSquare.piece.colour == 'White':
-                # Uses the MovePiece method to simultaneously move both the king and rook to specific squares
-                self.MovePiece(kingSquare, row, 3)
-                self.MovePiece(rookSquare, row, 4)
-            elif kingSquare.piece.colour == 'Black' and rookSquare.piece.colour == 'Black':
-                self.MovePiece(kingSquare, row, 3)
-                self.MovePiece(rookSquare, row, 4)
-
+            # Uses the MovePiece method to simultaneously move both the king and rook to the queenside castle position
+            self.MovePiece(kingSquare, row, 3)
+            self.MovePiece(rookSquare, row, 4) 
+            
     def Promotion(self, colour, screen):
         # This checks if a pawn has reached the opponents first row (the end of the board)
         if colour == 'White':
-            row = 0
-        elif colour == 'Black':
-            row = 7
+            promotionRow = 0 
+        else:
+            promotionRow = 7
 
         for column in range(1, 9):
-            # Stores the board object of the squares of each opponents starting row
-            square = self.board[row][column]
-            # Stores a queen piece object
-            queen = BoardSquares(row, column, Queen(colour))
+            square = self.board[promotionRow][column] # Stores the square of all squares on the opponents last row
+            queen = BoardSquares(promotionRow, column, Queen(colour)) # Stores a queen piece object
 
-            #This checks if the piece on the square of the opponents first row is a pawn
+            # This checks if the piece on the square of the opponents first row is a pawn
             if square.piece != None and square.piece.name == 'Pawn' and square.piece.colour == colour:
                 square.piece = queen.piece # Replaces the pawn object with the queen object
 
                 # These next lines are then responsible for displaying the queen on that square
                 piece = square.piece
-                image = pygame.image.load(piece.image)
-                imageCentre = column * SQUARE_WIDTH + SQUARE_HEIGHT // 2, row * SQUARE_HEIGHT + SQUARE_WIDTH // 2
+                image = pygame.image.load(piece.image) # Loads the queen image using the image attribute of the piece
+                imageCentre = (column * SQUARE_WIDTH + SQUARE_HEIGHT // 2, promotionRow * SQUARE_HEIGHT + SQUARE_WIDTH // 2)
                 piece.imageRect = image.get_rect(center=imageCentre)
-                screen.blit(image, piece.imageRect)
+                screen.blit(image, piece.imageRect) # Displays the queen onto the screen
 
     def Remove(self, row, column):
         square = self.board[row][column]

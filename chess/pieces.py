@@ -1,6 +1,7 @@
 import os
 import operator
 
+# This dictionary is used to map a string to its correct operator using the in-buit operator module.
 operators = {'+': operator.add, '-': operator.sub}
 
 class Piece:
@@ -17,71 +18,99 @@ class Piece:
 
 class Pawn(Piece):
     def __init__(self, colour):
-        #Using inheritance so I don't have to write all the code in the __init__ method for each piece.
-        super().__init__('Pawn', colour, 1.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('Pawn', colour, 1) # The number indicates the pawn's relative value
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
+        currentSquare = board[row][column]
+
         # Checks the colour of the piece at the current row and column
-        if board[row][column].piece.colour == 'White':
+        if currentSquare.piece.colour == 'White':
             direction = -1 # White moves up
         else:
             direction = 1 # Black moves down
 
-        if type == 'Control':
-            return self.GetControlMoves(board, row, column)
+        # Checks if the pawns are on their starting rows to allow them move two squares up but checks if both squares are empty first
+        if (currentSquare.piece.colour == 'White' and row == 6) or (currentSquare.piece.colour == 'Black' and row == 1):
+            if board[row + direction][column].piece == None and board[row + 2 * direction][column].piece == None:
+                moves.append((row + 2 * direction, column))
+        
+        # Allows the pawns move one square up as normal
+        if 0 <= row + direction <= 7 and board[row + direction][column].piece == None:
+            moves.append((row + direction, column))
 
-        else:
-            # Checks if the pawns are on their starting rows to allow them move two squares up but checks if both squares are empty first
-            if (board[row][column].piece.colour == 'White' and row == 6) or (board[row][column].piece.colour == 'Black' and row == 1):
-                if board[row + direction][column].piece == None and board[row + 2 * direction][column].piece == None:
-                    moves.append((row + 2 * direction, column))
+        # Responsible for diagonal captures
+        for col in [-1, 1]:
+            newColumn = column + col
             
-            # Allows the pawns move one square up as normal
-            if 0 <= row + direction <= 7 and board[row + direction][column].piece == None:
-                moves.append((row + direction, column))
+            # Checks if the diagonal capture squares are within bounds of the board
+            # But doesn't consider the last row because row + direction (7 + 1) would go out of bounds
+            if 1 <= newColumn <= 8 and row < 7:
+                newSquare = board[row + direction][newColumn]
 
-            # Responsible for diagonal captures
-            for col in [-1, 1]:
-                newColumn = column + col
-                
-                # Checks if the diagonal capture squares are within bounds of the board
-                if 1 <= newColumn <= 8 and row < 7:
-                    newSquare = board[row + direction][newColumn]
-                    currentSquare = board[row][column]
+                # Checks to ensure an opponent piece is present for a diagonal capture to be possible
+                if newSquare.piece != None and newSquare.piece.colour != currentSquare.piece.colour:
+                    moves.append((row + direction, newColumn))
 
-                    # Checks to ensure an opponent piece is present for a diagonal capture to be possible
-                    if newSquare.piece != None and newSquare.piece.colour != currentSquare.piece.colour:
-                        moves.append((row + direction, newColumn))
+        if condition == 'Control':
+            return self.GetControlMoves(board, row, column)
                 
         return moves
     
     def GetControlMoves(self, board, row, column):
         moves = []
+        currentSquare = board[row][column]
 
-        if board[row][column].piece.colour == 'White':
-            direction = -1 #White moves up
+        if currentSquare.piece.colour == 'White':
+            direction = -1 # White moves up
         else:
-            direction = 1 #Black moves down
+            direction = 1 # Black moves down
 
         for col in [-1, 1]:
             newColumn = column + col
             
-            #Checks if the diagonal capture squares are within bounds of the board
+            # Checks if the diagonal capture squares are within bounds of the board
+            # But doesn't consider the last row because row + direction (7 + 1) would go out of bounds
             if 1 <= newColumn <= 8 and row < 7:
                 newSquare = board[row + direction][newColumn]
-                currentSquare = board[row][column]
-                #Checks if the square is empty or another piece of same colour is there so it can defend that piece from the king.
+
+                #Checks if the square is empty or contains a friendly piece so it can defend that piece from the king.
                 if newSquare.piece == None or (newSquare.piece.colour == currentSquare.piece.colour):
                     moves.append((row + direction, newColumn))
                 
         return moves
+    
+    def EnPassant(self, board, row, column):
+        move = []
+        currentSquare = board[row][column]
+
+        if currentSquare.piece.colour == 'White':
+            correctRow = 3
+            direction = -1 # White moves up
+        else:
+            correctRow = 4
+            direction = 1 # Black moves down
+
+        for col in [-1, 1]:
+            newColumn = column + col
+
+            if 1 <= newColumn <= 8 and 0 <= row + direction <= 7:
+                newSquare = board[row][newColumn]
+                captureSquare = board[row + direction][newColumn]
+
+                if row == correctRow and newSquare.piece != None and newSquare.piece.name == 'Pawn'\
+                and newSquare.piece.colour != currentSquare.piece.colour and captureSquare.piece == None:
+                    move.append((row + direction, newColumn))
+
+        return move
 
 class Bishop(Piece):
     def __init__(self, colour):
-        super().__init__('Bishop', colour, 3.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('Bishop', colour, 3.5) # The number indicates the bishop's relative value
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
 
         operatorPairs = [('+', '+'), ('-', '-'), ('+', '-'), ('-', '+')]
@@ -99,7 +128,7 @@ class Bishop(Piece):
                     newSquare = board[newRow][newColumn]
                     currentSquare = board[row][column]
 
-                    if type == None:
+                    if condition == None:
                         # Checks if the square to move to is empty
                         if newSquare.piece == None:
                             moves.append((newRow, newColumn))
@@ -112,7 +141,7 @@ class Bishop(Piece):
                             # It stops if it encounters a piece of the same colour
                             break
 
-                    elif type == 'Control':
+                    elif condition == 'Control':
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((newRow, newColumn))
@@ -128,7 +157,7 @@ class Bishop(Piece):
                             #If it encounters a piece of opposite colour that is not a king, it stops.
                             break
 
-                    elif type == 'Pin':
+                    elif condition == 'Pin':
                         # Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((newRow, newColumn))
@@ -140,14 +169,16 @@ class Bishop(Piece):
                             moves.append((newRow, newColumn))
                             break
                         else:
+                            # If it encounters a friendly piece it stops
                             break
         return moves
 
 class Knight(Piece):
     def __init__(self, colour):
-        super().__init__('Knight', colour, 3.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('Knight', colour, 3) # The number indicates the knight's relative value
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
 
         operatorPairs = [('-', '+'), ('+', '+')]
@@ -165,12 +196,13 @@ class Knight(Piece):
                     newSquare = board[newRow][newColumn]
                     currentSquare = board[row][column]
 
-                    if type == None:
+                    if condition == None:
                         # Checks if the square encountered is empty or contains an enemy piece
                         if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, newColumn))
-                    elif type == 'Control':
-                        # Checks if the square encountered is empty or contains a friendly piece
+
+                    elif condition == 'Control':
+                        # Checks if the square encountered is empty or contains a friendly piece so it can defend it from the king
                         if newSquare.piece == None or currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, newColumn))
 
@@ -182,12 +214,13 @@ class Knight(Piece):
                     newSquare = board[newRow][newColumn]
                     currentSquare = board[row][column]
 
-                    if type == None:
+                    if condition == None:
                         # Checks if the square encountered is empty or contains an enemy piece
                         if newSquare.piece == None or currentSquare.piece.colour != newSquare.piece.colour:
                             moves.append((newRow, newColumn))
-                    elif type == 'Control':
-                        # Checks if the square encountered is empty or contains a friendly piece
+
+                    elif condition == 'Control':
+                        # Checks if the square encountered is empty or contains a friendly piece so it can defend it from the king
                         if newSquare.piece == None or currentSquare.piece.colour == newSquare.piece.colour:
                             moves.append((newRow, newColumn))
 
@@ -195,14 +228,15 @@ class Knight(Piece):
    
 class Rook(Piece):
     def __init__(self, colour):
-        super().__init__('Rook', colour, 5.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('Rook', colour, 5) # The number indicates the rook's relative value
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
 
         operatorPairs = ['+', '-']
 
-        #Responsible for vertical moves downwards
+        # Responsible for vertical moves 
         for ops in operatorPairs:
             for direction in range(1, 8):
                 op1 = operators[ops]
@@ -211,7 +245,7 @@ class Rook(Piece):
                 if 0 <= newRow <= 7:
                     newSquare = board[newRow][column]
                     currentSquare = board[row][column]
-                    if type == None:
+                    if condition == None:
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((newRow, column))
@@ -224,7 +258,8 @@ class Rook(Piece):
                         else:
                             #It stops if it encounters a piece of the same colour
                             break
-                    elif type == 'Control':
+
+                    elif condition == 'Control':
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((newRow, column))
@@ -238,7 +273,8 @@ class Rook(Piece):
                             continue
                         else:
                             break
-                    elif type == 'Pin':
+
+                    elif condition == 'Pin':
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((newRow, column))
@@ -253,13 +289,14 @@ class Rook(Piece):
                         else:
                             break
 
+            # Responsible for horizontal moves
             for direction in range(1, 8):
                 newColumn = op1(column, direction)
 
                 if 1 <= newColumn <= 8:
                     newSquare = board[row][newColumn]
                     currentSquare = board[row][column]
-                    if type == None:
+                    if condition == None:
                         if newSquare.piece == None:
                             moves.append((row, newColumn))
                         elif currentSquare.piece.colour != newSquare.piece.colour:
@@ -267,7 +304,8 @@ class Rook(Piece):
                             break
                         else:
                             break
-                    elif type == 'Control':
+
+                    elif condition == 'Control':
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((row, newColumn))
@@ -281,7 +319,8 @@ class Rook(Piece):
                             continue
                         else:
                             break
-                    elif type == 'Pin':
+
+                    elif condition == 'Pin':
                         #Checks if the square is empty
                         if newSquare.piece == None:
                             moves.append((row, newColumn))
@@ -294,23 +333,26 @@ class Rook(Piece):
                             #It stops if it encounters a piece of the same colour
                             break 
                         else:
+                            # It stops if it encounters a friendly piece
                             break
 
         return moves
 
 class Queen(Piece):
     def __init__(self, colour):
-        super().__init__('Queen', colour, 9.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('Queen', colour, 9) # The number indicates the queens's relative value
+
         self.rook = Rook(colour)
         self.bishop = Bishop(colour)
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
 
         # The queen just has the moves of the rook and a bishop combined
-        if type != None:
-            moves.extend(self.rook.GetValidMoves(board, row, column, type))
-            moves.extend(self.bishop.GetValidMoves(board, row, column, type))
+        if condition != None:
+            moves.extend(self.rook.GetValidMoves(board, row, column, condition))
+            moves.extend(self.bishop.GetValidMoves(board, row, column, condition))
         else:
             moves.extend(self.rook.GetValidMoves(board, row, column))
             moves.extend(self.bishop.GetValidMoves(board, row, column))
@@ -319,9 +361,10 @@ class Queen(Piece):
 
 class King(Piece):
     def __init__(self, colour):
-        super().__init__('King', colour, 100000.0)
+        # Using inheritance so I don't have to write all the code in the Piece class constructor for each piece.
+        super().__init__('King', colour, 100000) # The king doesn't need a value but I just gave it the largest one anyways
 
-    def GetValidMoves(self, board, row, column, type=None):
+    def GetValidMoves(self, board, row, column, condition=None):
         moves = []
         direction = 1
         
@@ -336,14 +379,15 @@ class King(Piece):
                 piece = square.piece
                 piece2 = board[row][column].piece
 
-                if type == None:
+                if condition == None:
                     #Checks if the square it's moving to is empty
                     if piece == None:
                         moves.append((newRow, newColumn))
                     #Checks if the piece at the square it's moving to is of a different colour and not a king
                     elif piece2.colour != piece.colour:
                         moves.append((newRow, newColumn))
-                elif type == 'Control':
+
+                elif condition == 'Control':
                     #Checks if the square it's moving to is empty
                     if piece == None:
                         moves.append((newRow, newColumn))
@@ -360,12 +404,13 @@ class King(Piece):
                 piece = square.piece
                 piece2 = board[row][column].piece
 
-                if type == None:
+                if condition == None:
                     if piece == None: 
                         moves.append((row, newColumn))
                     elif piece2.colour != piece.colour:
                         moves.append((row, newColumn))
-                elif type == 'Control':
+
+                elif condition == 'Control':
                     if piece == None: 
                         moves.append((row, newColumn))
                     elif piece2.colour == piece.colour:
@@ -380,12 +425,13 @@ class King(Piece):
                 piece = square.piece
                 piece2 = board[row][column].piece
 
-                if type == None:
+                if condition == None:
                     if piece == None:
                         moves.append((newRow, column))
                     elif piece2.colour != piece.colour:
                         moves.append((newRow, column))
-                elif type == 'Control':
+
+                elif condition == 'Control':
                     if piece == None:
                         moves.append((newRow, column))
                     elif piece2.colour == piece.colour:
@@ -397,12 +443,13 @@ class King(Piece):
             piece = square.piece
             piece2 = board[row][column].piece
 
-            if type == None:
+            if condition == None:
                 if piece == None:
                     moves.append((row + direction, column - direction))
                 elif piece2.colour != piece.colour:
                     moves.append((row + direction, column - direction))
-            elif type == 'Control':
+
+            elif condition == 'Control':
                 if piece == None:
                     moves.append((row + direction, column - direction))
                 elif piece2.colour == piece.colour:
@@ -414,12 +461,13 @@ class King(Piece):
             piece = square.piece
             piece2 = board[row][column].piece
 
-            if type == None:
+            if condition == None:
                 if piece == None:
                     moves.append((row - direction, column + direction))
                 elif piece2.colour != piece.colour:
                     moves.append((row - direction, column + direction))
-            elif type == 'Control':
+
+            elif condition == 'Control':
                 if piece == None:
                     moves.append((row - direction, column + direction))
                 elif piece2.colour == piece.colour:
@@ -429,9 +477,9 @@ class King(Piece):
     
     def GetShortCastleMoves(self, board, row, column):
         moves = []
-        #Checks if it's black or white by checking the row
+        # Checks if it's black or white by checking the row. row 7 for white, row 0 for black
         if (row == 7 or row == 0) and column == 5:
-            #Checks if the squares between the king and the rook on the right are empty
+            # Checks if the squares between the king and the king's rook are empty
             if board[row][column + 1].piece == None and board[row][column + 2].piece == None:
                 moves.append((row, column + 2))
 
@@ -439,9 +487,9 @@ class King(Piece):
     
     def GetLongCastleMoves(self, board, row, column):
         moves = []
-        #Checks if it's black or white by checking the row
+        # Checks if it's black or white by checking the row
         if (row == 7 or row == 0) and column == 5:
-            #Checks if the three squares between the king and rook on the left are empty
+            # Checks if the three squares between the king and the queen's rook are empty
             if board[row][column - 1].piece == None and board[row][column - 2].piece == None and board[row][column - 3].piece == None:
                 moves.append((row, column - 2))
 

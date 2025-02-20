@@ -1,14 +1,14 @@
 import pygame
 import sys
+from copy import deepcopy
 from chess.Button import Button
-from chess.Constants import SQUARE_HEIGHT, SQUARE_WIDTH, WHITE, GREEN, BLACK, GREY, BLUE, BROWN
+from chess.Constants import SQUARE_HEIGHT, SQUARE_WIDTH, GREEN, BLUE, BROWN, WHITE, BLACK, GREY
 from chess.GameManager import Game
 from chess.Board import Board
-from chess.AI import Minimax, EasyMode, MediumMode, HardMode
-from copy import deepcopy
+from chess.AI import EasyMode
 
-pygame.init()
-pygame.mixer.init()
+pygame.init() # Initialises all pygame's modules (i.e graphics, sound, etc.)
+pygame.mixer.init() # Initialises pygame's sound module
 
 gameWindow = pygame.display.set_mode((1000, 800))
 gameIcon = pygame.image.load('images/king.png')
@@ -18,19 +18,18 @@ fps = 60
 
 pygame.display.set_caption('Chess')
 
-mainText = pygame.font.SysFont('Arial', 120, bold=True)
-diffText = pygame.font.SysFont('Arial', 100, bold=True)
-subText = pygame.font.SysFont('Arial', 50)
-game = Game(gameWindow)
-board = Board()
+mainText = pygame.font.SysFont('Arial', 120, bold=True) # Text used for all other menu headings
+diffText = pygame.font.SysFont('Arial', 100, bold=True) # Text used for the difficulty menu heading
+subText = pygame.font.SysFont('Arial', 50) # Text used for menu sub-headings
+game = Game(gameWindow) # Holds an instance of the game class
+board = Board() # Holds an instance of the board class
 
-checkSFX = pygame.mixer.Sound('Sounds/Check sound.mp3')
-playerMoveSFX = pygame.mixer.Sound('Sounds/Player Move.mp3')
-oppMoveSFX = pygame.mixer.Sound('Sounds/Opp Move.mp3')
-gameEndSFX = pygame.mixer.Sound('Sounds/Game end.mp3')
-lowTimeSFX = pygame.mixer.Sound('Sounds/Timer Sound.mp3')
-takeImage = pygame.image.load('images/Takeback.png')
-takeBackButton = Button(10, 700, takeImage, 1.2)
+# Loads all the sounds 
+checkSFX = pygame.mixer.Sound('Sounds/Check sound.mp3') # Sound for checks
+whiteMoveSFX = pygame.mixer.Sound('Sounds/Player Move.mp3') # Sound for white making a move
+blackMoveSFX = pygame.mixer.Sound('Sounds/Opp Move.mp3') # Sound for black making a move
+gameEndSFX = pygame.mixer.Sound('Sounds/Game end.mp3') # Sound for when the game ends
+lowTimeSFX = pygame.mixer.Sound('Sounds/Timer Sound.mp3') # Sound for when a player has less than 10 seconds
 
 #Function that first converts the text into an image in order to allow it to be displayed on the screen
 def DisplayText(text, font, colour, x, y):
@@ -43,17 +42,15 @@ def SelectedRowColumn(mousePosition):
     column = x // SQUARE_HEIGHT # Determines the column by performing the correct division with the x coordinate
     return row, column
 
-def Play(time, boardColour, sound, difficulty=None):
+def Play(time, boardColour, sound, difficulty):
+    targetMenu = None # Variable to keep track of which menu to go to
     running = True
-    targetMenu = None
-    playedMoves = []
-    eventScheduled = False
-    
-    checkSFXPlayed = False
-    playerMoveSFXPlayed = False
-    oppMoveSFXPlayed = False
-    wtimeSFXPlayed = False
-    btimeSFXPlayed = False
+    checkSFXPlayed = False # Flag to track if the check sound effect has been played
+    whiteSFXPlayed = False # Flag to track if the white move sound effect has been played
+    blackSFXPlayed = False # Flag to track if the black moves sound effect has been played
+    whiteTimePlayed = False # Flag to track if the white low time sound effect has been played
+    blackTimePlayed = False # Flag to track if the black low time sound effect has been played
+
     TIMER_FONT = pygame.font.SysFont('Roboto Mono', 50)
 
     # Initialises timer values for white and black depending on the timer option choice from the timer selection menu
@@ -61,156 +58,157 @@ def Play(time, boardColour, sound, difficulty=None):
     blackSeconds = time * 60
     pygame.time.set_timer(pygame.USEREVENT, 1000) # Triggers a USEREVENT every 1000 milliseconds (i.e. 1 second)
 
-    AIMOVEMENT = pygame.USEREVENT + 1
-    TURNSWITCH = pygame.USEREVENT + 2
+    eventScheduled = False # Initialised to false so the AI can make its move when it is its turn
+    AIMOVEMENT = pygame.USEREVENT + 1 # Creates a custom event for the AI moving
+    TURNSWITCH = pygame.USEREVENT + 2 # Creates a custom event for the turns to switch after the AI makes a move.
 
-    moves = [deepcopy(board)]
-    count = 1
+    moves = [deepcopy(board)] # Stores the copy of the original board state so it can't be changed
+    count = 1 # Variable to track the number of times the takeback button has been clicked
+ 
+    # Checks if the AI was selected to play so it doesn't display the button if play human was selected.
+    if difficulty != None:
+        takeBackImage = pygame.image.load('images/Takeback.png')
+        takeBackButton = Button(10, 700, takeBackImage, 1.2) # Displays the takeBackButton at its correct position
+
     while running:
-        if difficulty == None and takeBackButton.Clicked(gameWindow):
-            #print(game.MoveHistory)
-            for moves in game.MoveHistory:
-                playedMoves.extend(game.MoveNotation(moves))
+        # Checks if the black king has been checkmated
+        if game.Checkmate('Black'):
+            targetMenu = 'White Checkmates'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-            print(playedMoves)
-            #print(board.Display(AllMoves(board, 'Black', game)[18]))
+        # Checks if the white king has been checkmated
+        if game.Checkmate('White'):
+            targetMenu = 'Black Checkmates'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-        if takeBackButton.Clicked(gameWindow) and difficulty != None: #and count <= 3:
-            count += 1
-            if len(moves) > 1:
-                moves.pop()
-            previousBoard = moves[-1]
-            game.AIBoard(deepcopy(previousBoard))
+        # Checks if the current position is a stalemate
+        if game.Stalemate():
+            targetMenu = 'Stalemate'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
+            
+        # Checks if the current position doesn't have enough pieces to deliver a checkmate
+        if game.InsufficientMaterial():
+            targetMenu = 'Insufficient Material'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-        if game.InCheck(game.turn) != None and not checkSFXPlayed and sound == 'On':
-            checkSFX.play()
-            checkSFXPlayed = True
+        # Checks if white's time has run out but black only has a king left or vice versa
+        if (whiteSeconds == 0 and len(game.PlayerPieces('Black')) == 0) or (blackSeconds == 0 and len(game.PlayerPieces('White')) == 0):
+            targetMenu = 'Timeout vs Insufficient Material'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-        elif game.InCheck(game.turn) == None: #Error
-            checkSFXPlayed = False
+        # Checks if white's time has run out
+        elif whiteSeconds == 0:
+            targetMenu = 'White Timeout'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-        if game.turn == 'White' and not playerMoveSFXPlayed and game.InCheck(game.turn) == None and sound == 'On':
-            playerMoveSFX.play()
-            playerMoveSFXPlayed = True
-            oppMoveSFXPlayed = False
+        # Checks if black's time has run out
+        elif blackSeconds == 0:
+            targetMenu = 'Black Timeout'
+            game.board = deepcopy(board) # Resets the board so it stores the original board state with all pieces on starting positions
+            game.turn = 'White' # Resets the turn so white makes the first move
+            running = False
 
-        elif game.turn == 'Black' and not oppMoveSFXPlayed and game.InCheck(game.turn) == None and sound == 'On':
-            oppMoveSFX.play()
-            oppMoveSFXPlayed = True
-            playerMoveSFXPlayed = False
+        # Checks if the sound parameter has value 'On' which would have been determined from the sound selection in the settings menu
+        if sound == 'On':
+            # Checks if a king is in check
+            if game.InCheck() != None and not checkSFXPlayed:
+                checkSFX.play() # Plays the checks sound effect
+                checkSFXPlayed = True # Set to true so it doesn't continue playing
 
-        if whiteSeconds < 10 and not wtimeSFXPlayed and sound == 'On':
-            lowTimeSFX.play()
-            wtimeSFXPlayed = True
+            # Checks if a king is not in check
+            elif game.InCheck() == None:
+                checkSFXPlayed = False # Resets the sound effect for 'checks' to false so it can be played again if in check again
 
-        if blackSeconds < 10 and not btimeSFXPlayed and sound == 'On':
-            lowTimeSFX.play()
-            btimeSFXPlayed = True
+            # Checks if it's white's turn and the king is not in check and the white move sound effect was not played previously
+            if game.turn == 'White' and game.InCheck() == None and not whiteSFXPlayed:
+                whiteMoveSFX.play() # Plays the move sound effect for white
+                whiteSFXPlayed = True # Sets to true so the sound effect doesn't continue playing
+                blackSFXPlayed = False # Sets to false so sound effect can be played again when turns switch
+
+            # Checks if it's black's turn and the king is not in check and the black move sound effect was not played previously
+            elif game.turn == 'Black' and game.InCheck() == None and not blackSFXPlayed:
+                blackMoveSFX.play() # Plays the move sound effect for black
+                blackSFXPlayed = True # Sets to true so the sound effect doesn't continue playing
+                whiteSFXPlayed = False # Sets to false so sound effect can be played again when turns switch
+
+            # Checks if the game has ended
+            if game.TerminalCondition() or whiteSeconds == 0 or blackSeconds == 0:
+                gameEndSFX.play() # Plays the game end sound effect
+
+            # Checks if white has less than 10 seconds
+            if whiteSeconds < 10 and not whiteTimePlayed:
+                lowTimeSFX.play() # Plays the low time sound effect
+                whiteTimePlayed = True # Prevents the sound effect from playing continuously
+
+            # Checks if black has less than 10 seconds
+            if blackSeconds < 10 and not blackTimePlayed:
+                lowTimeSFX.play() # Plays the low time sound effect
+                blackTimePlayed = True
 
         for event in pygame.event.get():
+            # Checks if the X button to close the window has been clicked
             if event.type == pygame.QUIT:
-                running = False
+                running = False # Exits the game loop
 
             # Checks if the mouse has been left clicked
             if event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0] == 1:
                 mousePosition = pygame.mouse.get_pos() # Gets the current position of the mouse
                 row, column = SelectedRowColumn(mousePosition) # Gets the row and column from the mouse's current position
                 game.SelectSquare(row, column) # Calls the SelectSquare method to allow for piece selection and movement
-                
+
+            # Checks if a USEREVENT has been triggered
             if event.type == pygame.USEREVENT:
                 # Checks if it is currently white's turn
                 if game.turn == 'White':
-                    # Makes white's time tick down
+                    # Makes white's time tick down by 1 each time a userevent is triggered (i.e every 1 second)
                     whiteSeconds -= 1
                 else:
-                    # Makes black' time tick down
+                    # Makes black' time tick down by 1 each time a userevent is triggered
                     blackSeconds -= 1
 
+            # Checks if the event for the AI to move has been triggered
             if event.type == AIMOVEMENT:
+                # Checks if it's black's turn and the selected difficulty from the difficulty selection menu was Easy
                 if game.turn == 'Black':
                     if difficulty == 'Easy':
-                        newBoard = EasyMode(game.GetBoard(),game)
-                    elif difficulty == 'Medium':
-                        newBoard = MediumMode(game.GetBoard(), game)
-                    elif difficulty == 'Hard':
-                        newBoard = HardMode(game.GetBoard(), game)
+                        newBoard = EasyMode(game.GetBoard(), game) # Passes the board object and game class the AI easy mode function would use
 
-                    game.AIBoard(newBoard)
-                    moves.append(deepcopy(newBoard))
+                    game.AIBoard(newBoard) # Performs the visual movement as self.board is then reassigned.
+                    moves.append(deepcopy(newBoard)) # Adds the copied board state to the moves list
 
-                    pygame.event.post(pygame.event.Event(TURNSWITCH))
+                    pygame.event.post(pygame.event.Event(TURNSWITCH)) # Posts the turn switch event after the AI makes its move
 
+            # Checks if the custom event TURNSWITCH has been triggered
             if event.type == TURNSWITCH:
-                game.turn = 'White'
-                eventScheduled = False
+                game.turn = 'White' # Switches the turns back to white so this way the AI isn't using my time
+                eventScheduled = False # Sets to false so it can allow the AI to makes its move again once it is its turn
 
-        if game.turn == 'Black' and difficulty and not eventScheduled:
-            if game.Stalemate():
-                if sound == 'On':
-                    gameEndSFX.play()
-                targetMenu = 'Stalemate'
-                game.board = deepcopy(board)
-                game.turn = 'White'
-                running = False
-            else:
-                pygame.time.set_timer(AIMOVEMENT, 500, True) # Delay AI move by 500ms
-                eventScheduled = True
-                print("AI move event scheduled!")
+        # Checks if its the AI's turn and it hasn't made a move yet
+        if game.turn == 'Black' and difficulty != None and not eventScheduled:
+            pygame.time.set_timer(AIMOVEMENT, 500, True) # Triggers the event to make the AI move but delays it by 500 ms (0.5 seconds)
+            eventScheduled = True # Sets to true so the AI doesn't make multiple moves at once
 
-        if game.Checkmate('Black'):
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'White Checkmate'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
+        # Checks if the AI was selected to play and the takeback has been clicked 3 times or less
+        if difficulty != None and takeBackButton.Clicked(gameWindow) and count <= 3:
+            count += 1
+            # Checks if the list that stores all played moves has more than 1 left to prevent popping the original board state. 
+            if len(moves) > 1:
+                moves.pop() # Removes the previously added move
+            previousBoard = moves[-1] # Stores the last board state after the previous one has been removed
+            game.AIBoard(deepcopy(previousBoard)) # Reassigns self.board so it now holds copy of previous board state which is displayed
 
-        if game.Checkmate('White'):
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'Black Checkmate'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
-
-        if game.InsufficientMaterial():
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'Insufficient Material'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
-
-        # Checks if white's time has run out but black only has a king left or vice versa
-        if (whiteSeconds == 0 and len(game.PlayerPieces('Black')) == 0) or (blackSeconds == 0 and len(game.PlayerPieces('White')) == 0):
-            targetMenu = 'Timeout vs Insufficient Material'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
-
-        elif whiteSeconds == 0:
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'Black win time'
-            game.board = deepcopy(board)
-            running = False
-
-        elif blackSeconds <= 0:
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'White win time'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
-
-        if difficulty == None and game.Stalemate():
-            if sound == 'On':
-                gameEndSFX.play()
-            targetMenu = 'Stalemate'
-            game.board = deepcopy(board)
-            game.turn = 'White'
-            running = False
-    
         # Draws the rectangles on which the timers would appear
         pygame.draw.rect(gameWindow, WHITE, (1, 375, 98, 50))
         pygame.draw.rect(gameWindow, BLACK, (901, 375, 98, 50))
@@ -218,7 +216,7 @@ def Play(time, boardColour, sound, difficulty=None):
         # Checks if white's time is greater than 0 to enusre it doesn't go into the negatives
         if whiteSeconds >= 0:
             whiteMinutes = whiteSeconds // 60 # The minute part in the timer
-            whiteSecs = whiteSeconds % 60 # The second part in the timer
+            whiteSecs = whiteSeconds % 60 # The seconds part in the timer
         # Responsible for converting the display into the correct format by using zero padding for seconds
         whiteTimerText = TIMER_FONT.render(f"{whiteMinutes}:{whiteSecs:02}", True, BLACK)
         whiteTimerRect = whiteTimerText.get_rect(center=(49, 400))
@@ -227,7 +225,7 @@ def Play(time, boardColour, sound, difficulty=None):
         # Checks if black's time is greater than 0 to ensure it doesn't go into the negatives
         if blackSeconds >= 0:
             blackMinutes = blackSeconds // 60 # The minute part in the timer 
-            blackSecs = blackSeconds % 60 # The second part in the timer
+            blackSecs = blackSeconds % 60 # The seconds part in the timer
         # Responsible for converting the display into the correct format by using zero padding for seconds
         blackTimerText = TIMER_FONT.render(f"{blackMinutes}:{blackSecs:02}", True, WHITE)
         blackTimerRect = blackTimerText.get_rect(center=(949, 400))
@@ -237,27 +235,28 @@ def Play(time, boardColour, sound, difficulty=None):
         game.UpdateScreen(boardColour) # Calls Update Screen with a board Colour parameter so the correct board theme is rendered
         clock.tick(fps)
 
-    if targetMenu == 'White Checkmate':
-        EndScreen('win', 'Checkmate', time, sound, difficulty, boardColour, 'White')
-    elif targetMenu == 'Black Checkmate':
-        EndScreen('win', 'Checkmate', time, sound, difficulty, boardColour, 'Black')
+    # Directs the players to the correct end screens depending on how the game ended
+    if targetMenu == 'White Checkmates':
+        EndScreen('Win', 'Checkmate', time, sound, difficulty, boardColour, 'White')
+    elif targetMenu == 'Black Checkmates':
+        EndScreen('Win', 'Checkmate', time, sound, difficulty, boardColour, 'Black')
     elif targetMenu == 'Stalemate':
-        EndScreen('draw', 'Stalemate', time, sound, difficulty, boardColour)
+        EndScreen('Draw', 'Stalemate', time, sound, difficulty, boardColour)
     elif targetMenu == 'Insufficient Material':
-        EndScreen('draw', 'Insufficient Material', time, sound, difficulty, boardColour)
+        EndScreen('Draw', 'Insufficient Material', time, sound, difficulty, boardColour)
     elif targetMenu == 'Timeout vs Insufficient Material':
         EndScreen('Draw', 'Timeout vs Insufficient Material', time, sound, difficulty, boardColour)
-    elif targetMenu == 'Black win time':
-        EndScreen('win', 'Timeout', time, sound, difficulty, boardColour, 'Black')
-    elif targetMenu == 'White win time':
-        EndScreen('win', 'Timeout', time, sound, difficulty, boardColour, 'White')
-        
+    elif targetMenu == 'White Timeout':
+        EndScreen('Win', 'Timeout', time, sound, difficulty, boardColour, 'Black')
+    elif targetMenu == 'Black Timeout':
+        EndScreen('Win', 'Timeout', time, sound, difficulty, boardColour, 'White')
+
 def EndScreen(outcome, method, time, sound, difficulty, boardColour, pieceColour=None):
     targetMenu = None # Variable to keep track of which menu to go to
     colourMapping = {'White': WHITE, 'Black': BLACK} # Maps the piece colour to a colour constant
 
     # Checks if a player won
-    if outcome == 'win':
+    if outcome == 'Win':
         gameWindow.fill(GREEN)
         message = f'{pieceColour.upper()} WON!' # Stores message dynamically so if pieceColour was black, it would be BLACK WON! and vice versa
         subMessage = f'by {method}' # Stores the sub message dynamically similar to how the message variable works
@@ -268,7 +267,7 @@ def EndScreen(outcome, method, time, sound, difficulty, boardColour, pieceColour
         DisplayText(subMessage, subText, colourMapping[pieceColour], 360, 180)
 
     # Checks if the game ended in a draw
-    if outcome == 'draw':
+    if outcome == 'Draw':
         gameWindow.fill(GREY)
         subMessage = f'by {method}'
 
@@ -330,7 +329,6 @@ def EndScreen(outcome, method, time, sound, difficulty, boardColour, pieceColour
     # Directs the player to the main menu
     if targetMenu == 'Main Menu':
         MainMenu()
-    
     # Directs the player to the main game screen
     elif targetMenu == 'Play':
         Play(time, boardColour, sound, difficulty)
@@ -567,7 +565,7 @@ def TimerSelection(boardColour, sound, difficulty=None):
     elif difficulty != None:
         Play(targetMenu, boardColour, sound, difficulty) # The target menu indicates the time if it's not a string
     else:
-        Play(targetMenu, boardColour, sound) # This is for a game when a human was selected to play
+        Play(targetMenu, boardColour, sound, None) # This is for a game when a human was selected to play
 
 def GameMode(boardColour, sound):
     targetMenu = None # Variable to keep track of which menu to go to
@@ -791,12 +789,12 @@ def Settings():
     if targetMenu == 'Main Menu':
         MainMenu()
     else:
-        GameMode(targetMenu[0], targetMenu[1])
+        GameMode(targetMenu[0], targetMenu[1]) # The first parameter is the boardColour, the second is the sound option choice
 
 def MainMenu():
-    targetMenu = None
+    targetMenu = None # Variable to track the menu to go to 
     bgImage = pygame.image.load('images/Bg Image.jpg')
-    #Displays and scales the image as the background image of the game window.
+    # Displays and scales the image as the background image of the game window.
     gameWindow.blit(pygame.transform.scale(bgImage, (1000, 800)), (0, 0))
 
     # Displays the MAIN MENU heading onto the screen
@@ -806,13 +804,13 @@ def MainMenu():
     playImage = pygame.image.load('images/Play Button.png')
     quitImage = pygame.image.load('images/Quit button.png')
 
-    #Uses the button class to create an instance of the play and quit button
+    # Uses the button class to create an instance of the play and quit button
     playButton = Button(385, 650, playImage, 0.5)
     quitButton = Button(930, 12, quitImage, 0.75)
 
     run = True
     while run:
-        # Uses the Clicked method in the button class to display the button on the screen and enable the click actions.
+        # Checks if the play button is clicked
         if playButton.Clicked(gameWindow):
             targetMenu = 'Settings'
             # Once play is clicked, it exits the game loop
@@ -837,3 +835,17 @@ def MainMenu():
     sys.exit()
 
 MainMenu()
+
+
+
+
+
+
+
+
+
+
+
+
+
+

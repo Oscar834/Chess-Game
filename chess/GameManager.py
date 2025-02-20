@@ -2,7 +2,6 @@ import pygame
 from .Constants import SQUARE_HEIGHT, SQUARE_WIDTH, LGREY
 from .Board import Board
 from .Pieces import *
-import math
 
 class Game:
     def __init__(self, screen):
@@ -16,10 +15,12 @@ class Game:
         self.squareSelected = None
         self.turn = 'White'
         self.validPieceMoves = []
+        self.EnPassantMove = []
         self.screen = screen
         self.kingMoved = {'White': False, 'Black': False}
         self.kingRookMoved = {'White': False, 'Black': False}
         self.queenRookMoved = {'White': False, 'Black': False}
+        self.MoveHistory = []
         
     def UpdateScreen(self, colour):
         self.board.DrawBoard(self.screen, colour)
@@ -28,40 +29,6 @@ class Game:
         self.board.Promotion('White', self.screen)
         self.board.Promotion('Black', self.screen)
         self.DrawValidMoves(self.validPieceMoves)
-
-    def FriendlyPiecePosition(self, board, piece, colour):
-        # Dictionary which stores the row and column of the piece as the value and the piece number as the key
-        friendlyPieces = {1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}
-        positions = []
-
-        for row in range(0, 8):
-            for column in range(1, 9):
-                # Row and column for friendly piece added to positions list. 
-                if board.board[row][column].piece != None and board.board[row][column].piece.name == piece\
-                and board.board[row][column].piece.colour == colour:
-                    positions.append((row, column))
-
-                    # Uses the values in the positions list and adds them in turn to be the value of the keys in the dictionary
-                    for key, value in zip(friendlyPieces.keys(), positions):
-                        friendlyPieces[key] = value
-
-        return friendlyPieces
-    
-    def EnemyPiecePosition(self, piece):
-        enemyPieces = {1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}
-        positions = []
-
-        for row in range(0, 8):
-            for column in range(1, 9):
-                # Row and column for enemy piece added to positions list
-                if self.board.board[row][column].piece != None and self.board.board[row][column].piece.name == piece\
-                and self.board.board[row][column].piece.colour != self.turn:
-                    positions.append((row, column))
-
-                    for key, value in zip(enemyPieces.keys(), positions):
-                        enemyPieces[key] = value
-
-        return enemyPieces
     
     def PiecePositions(self, piece, colour):
         pieces = {1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}
@@ -78,11 +45,24 @@ class Game:
                         pieces[key] = value
 
         return pieces
+    
+    def AllPiecePositions(self, colour):
+        positions = []
+
+        for row in range(0, 8):
+            for column in range(1, 9):
+                # This adds the positions of all the pieces of the current player to the positions list
+                if self.board.board[row][column].piece != None and self.board.board[row][column].piece.colour == colour\
+                and self.board.board[row][column].piece.name != 'King':
+                    positions.append((row, column))
+
+        return positions
 
     def PieceMoves(self, piece, colour):
         moves = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: []}
         squares = []
 
+        # Checks if the piece is a king
         if piece == 'King':
             kingRow, kingColumn = self.PiecePositions('King', colour).get(1)
             # Adds the King moves to the squares list including cases where his movement is restricted
@@ -93,8 +73,10 @@ class Game:
                 moves[key] = value
 
         else:
+            # This for loop ensures every possible piece is checked
             for num in range(1, 10):
                 piecePosition = self.PiecePositions(piece, colour).get(num)
+                # Checks if the piece exists
                 if piecePosition != None:
                     pieceRow, pieceColumn = piecePosition
                     # Adds the updated moves for the piece to the squares list
@@ -113,24 +95,6 @@ class Game:
                 return key # Returns the key from the value
             
         return None
-
-    def CheckingPiecePosition(self, colour):
-        positions = []
-        for number in range(1, 10):
-            for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
-                # Adds the position of any piece giving the check to the positions list
-                positions.append(self.PieceCheck(piece, number, colour))
-
-        return positions
-    
-    def BlockMoves(self, colour):
-        moves = []
-        for number in range(1, 10):
-            for piece in ['Queen', 'Rook', 'Bishop']:
-                # Adds the appropriate blocking moves to the moves list depending on the piece giving the check
-                moves.extend(self.BlockPieceCheck(piece, number, colour))
-
-        return moves
     
     def AllPieceMoves(self, colour):
         positions = []
@@ -172,61 +136,56 @@ class Game:
         return False
 
     def PlayerPieces(self, colour):
-        playerPieces = []
+        pieceValues = []
 
+        # The two for loops check every single square on the board
         for row in range(0, 8):
             for column in range(1, 9):
-                # Adds the names of all the pieces of the white or black player (depending on colour) to the playerPieces list
-                if self.board.board[row][column].piece != None and self.board.board[row][column].piece.colour == colour:
-                    playerPieces.append(self.board.board[row][column].piece.name)
+                square = self.board.board[row][column]
+                # Checks if the there is a piece on the square and the piece is not a king
+                if square.piece != None and square.piece.colour == colour and square.piece.name != 'King':
+                    # Adds the values of the white or black pieces depending on colcour to the piece values list
+                    pieceValues.append(square.piece.value) 
 
-        return playerPieces
+        return pieceValues
     
     def AllPieces(self):
-        allPieces = []
+        pieceValues = []
         
+        # The two for loops check every single square on the board
         for row in range(0, 8):
             for column in range(1, 9):
-                # Adds the name of all the pieces of every single piece on the board
-                if self.board.board[row][column].piece != None:
-                    allPieces.append(self.board.board[row][column].piece.name)
+                square = self.board.board[row][column]
+                # Checks if the there is a piece on the square and the piece is not a king
+                if square.piece != None and square.piece.name != 'King':
+                    pieceValues.append(square.piece.value) # Adds the value of the piece to the piece values list
 
-        return allPieces
+        return pieceValues
 
     def InsufficientMaterial(self):
-        whitePieces = self.PlayerPieces('White')
-        blackPieces = self.PlayerPieces('Black')
-        allPieces = self.AllPieces()
+        whitePieces = self.PlayerPieces('White') # Stores the piece values of all white pieces
+        blackPieces = self.PlayerPieces('Black') # Stores the piece values of all black pieces
+        allPieces = self.AllPieces() # Stores the piece values of all pieces
+        pawnValue = 1
 
-        if allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 0\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
+        # Checks if only kings are left or kings and 1 bishop or knight is left
+        if allPieces == [] or (len(allPieces) == 1 and 3 <= allPieces[0] <= 3.5):
             return True
         
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 1\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
+        # Checks if two pieces aside from the king's are left and no pawns
+        elif len(allPieces) == 2 and pawnValue not in allPieces:
+            # Checks if a knight or bishop for both players exist
+            if 6 <= sum(allPieces) <= 7 and len(whitePieces) != 0  and len(blackPieces) != 0:
+                return True
+            
+            # Checks if only two knights are left
+            elif sum(allPieces) == 6:
+                return True
         
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 0\
-        and allPieces.count('Bishop') == 1 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 1\
-        and whitePieces.count('Bishop') == 0 and blackPieces.count('Bishop') == 1 and blackPieces.count('Knight') == 0\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 0\
-        and whitePieces.count('Bishop') == 1 and blackPieces.count('Bishop') == 0 and blackPieces.count('Knight') == 1\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 0\
-        and whitePieces.count('Bishop') == 1 and blackPieces.count('Bishop') == 1 and blackPieces.count('Knight') == 0\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 2\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
+        return False
+    
+    def TerminalCondition(self):
+        if self.Checkmate('White') or self.Checkmate('Black') or self.Stalemate() or self.InsufficientMaterial():
             return True
         
         return False
@@ -234,12 +193,8 @@ class Game:
     def GetBoard(self):
         return self.board # Returns the board object so it can be used with the AI
     
-    def AIMovement(self, board):
-        self.board = board 
-        self.SwitchTurns() # Makes the AI switch turns after it makes a move
-
     def AIBoard(self, board):
-        self.board = board
+        self.board = board # Reassigns self.board so it now holds the new board object passed to the method
 
     def Moves(self, colour):
         boardMoves = []
@@ -254,16 +209,16 @@ class Game:
         return boardMoves
     
     def SelectSquare(self, row, column):
-        # checks if a square is selected
+        # Checks if a square is selected
         if self.squareSelected:
             finalSquare = self.Move(row, column)
+            # Checks if an invalid move has been performed
             if not finalSquare:
-                # If the square they tried to move to is not valid, reset the valid moves, and allow them to select a piece again
-                self.validPieceMoves = []
-                self.squareSelected = None
-                self.SelectSquare(row, column)
+                self.validPieceMoves = [] # Clear the valid moves if an invalid square has been selected so they are not displayed
+                self.squareSelected = None # resets the selected piece
+                self.SelectSquare(row, column) # Allow to select again
 
-        piece = self.board.PieceAtSquare(row, column)
+        piece = self.board.PieceAtSquare(row, column) # Gets the piece attribute from the current row and column
         pieceSquare = self.board.GetPieceSquare(row, column)
         
         if piece != None and piece.name == 'King' and piece.colour == self.turn:
@@ -292,12 +247,30 @@ class Game:
             self.kingMoved[self.turn] = True 
             self.SwitchTurns()
 
+        elif self.squareSelected.piece != None and self.squareSelected.piece.name == 'Pawn'\
+        and self.squareSelected.piece.colour == 'White' and (row, column) in self.EnPassantMove and (row, column) in self.validPieceMoves:
+            self.board.Remove(row + 1, column)
+            self.board.MovePiece(self.squareSelected, row, column)
+            self.SwitchTurns()
+
+        elif self.squareSelected.piece != None and self.squareSelected.piece.name == 'Pawn'\
+        and self.squareSelected.piece.colour == 'Black' and (row, column) in self.EnPassantMove and (row, column) in self.validPieceMoves:
+            self.board.Remove(row - 1, column)
+            self.board.MovePiece(self.squareSelected, row, column)
+            self.SwitchTurns()
+        
         # This is the block responsible for every other move
         elif self.squareSelected and (row, column) in self.validPieceMoves:
+            self.MoveHistory.append({self.squareSelected.piece.name: (row, column)})
+            # Checks if the king has moved
             if self.squareSelected.piece.name == 'King':
                 self.kingMoved[self.turn] = True
+
+            # Checks if the kingside rook has moved
             if self.squareSelected.piece.name == 'Rook' and 6 <= column <= 8:
                 self.kingRookMoved[self.turn] = True
+                
+            # Checks if the queenside rook has moved
             if self.squareSelected.piece.name == 'Rook' and 1 <= column <= 4:
                 self.queenRookMoved[self.turn] = True
             self.board.MovePiece(self.squareSelected, row, column)
@@ -305,6 +278,43 @@ class Game:
             return True
         
         return False
+    
+    def MoveNotation(self, dict):
+        moves = []
+        columnLookup = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'}
+
+        for piece, position in dict.items():
+            row = 8 - position[0]
+            column = columnLookup.get(position[1])
+
+        if piece == 'Pawn':
+            moves.append(column + str(row))
+        elif piece != 'Knight':
+            moves.append(piece[0] + column + str(row))
+        elif piece == 'Knight':
+            moves.append('N' + column + str(row))
+
+        return moves
+    
+    def EnPassantPossible(self, row, column, colour):
+        currentSquare = self.board.board[row][column]
+        if colour == 'White':
+            enPassantRow = 3
+            direction = -1
+        else:
+            enPassantRow = 4
+            direction = 1
+
+        for col in [-1, 1]:
+            newColumn = column + col
+
+            if 1 <= newColumn <= 8 and 0 <= row + direction <= 7:
+                newSquare = self.board.board[row][newColumn]
+                captureSquare = self.board.board[row + direction][newColumn]
+
+                if row == enPassantRow and newSquare.piece != None and newSquare.piece.name == 'Pawn'\
+                and newSquare.piece.colour != currentSquare.piece.colour and captureSquare.piece == None:
+                    return True
         
     def DrawValidMoves(self, moves):
         for move in moves:
@@ -332,15 +342,14 @@ class Game:
     def NewKingMoves(self, row, column, colour):
         if colour == 'White':
             oppColour = 'Black'
-            rows = 7
+            castlingRow = 7
         else:
             oppColour = 'White'
-            rows = 0
+            castlingRow = 0
+            
         kingMoves = self.king.GetValidMoves(self.board.board, row, column)
         shortCastleMoves = self.king.GetShortCastleMoves(self.board.board, row, column)
         longCastleMoves = self.king.GetLongCastleMoves(self.board.board, row, column)
-        oppKingRow, oppKingColumn = self.PiecePositions('King', oppColour).get(1)
-        kingControlMoves = self.king.GetValidMoves(self.board.board, oppKingRow, oppKingColumn, 'Control')
         
         # Checks if kingside castle conditions are met and the King is not in check
         if self.board.CanCastleKingside(colour) and self.InCheck(colour) == None\
@@ -352,39 +361,40 @@ class Game:
         and self.KingMoved(colour) == False and self.RookMoved(colour, 'queenside') == False:
             kingMoves.extend(longCastleMoves) # Adds the castle moves to the valid moves
 
-        enemyPieceData = {'Queen': [], 'Rook': [], 'Bishop': [], 'Knight': [], 'Pawn': []}
+        enemyPieceData = {'King': [], 'Queen': [], 'Rook': [], 'Bishop': [], 'Knight': [], 'Pawn': []}
         
         for number in range(1, 10):
-            for piece in ['Queen', 'Rook','Bishop', 'Knight', 'Pawn']:
+            for piece in ['King', 'Queen', 'Rook','Bishop', 'Knight', 'Pawn']:
                 position = self.PiecePositions(piece, oppColour).get(number) # Gets the position of each piece from the key in the dictionary
+                # Checks if the piece exists
                 if position != None:
                     pieceRow, pieceColumn = position
                     # Dynamically gets the method to calculate control moves for the given piece
                     controlMovesMethod = getattr(self, piece.lower()).GetValidMoves
                     # Adds a dictionary which hold the control to the list of each piece in the enemyPieceData dictionary
-                    enemyPieceData[piece].append({
-                        'controlMoves': controlMovesMethod(self.board.board, pieceRow, pieceColumn, 'Control')
-                    })
+                    enemyPieceData[piece].append({'controlMoves': controlMovesMethod(self.board.board, pieceRow, pieceColumn, 'Control')})
 
         # Loops through all the values in the enemy piece data dictionary
         for pieceData in enemyPieceData.values():
+            # Loops through the dictionaries in the lists
             for enemyData in pieceData:
                 controlMoves = enemyData['controlMoves']
 
                 # Loops through all the initial valid King moves and removes any that are in the control moves of an enemy piece
                 for move in kingMoves[:]:
-                    if self.board.board[row][column].piece.colour == colour and (move in controlMoves or move in kingControlMoves):
+                    if self.board.board[row][column].piece.colour == colour and move in controlMoves:
                         kingMoves.remove(move)
 
-                    # This prevents kingside castling through a check
-                    if move == (rows, 7) and move in kingMoves and ((rows, 6) in controlMoves or (rows, 6) in kingControlMoves)\
+                    # This prevents kingside castling through a controlled square
+                    if move == (castlingRow, 7) and move in kingMoves and (castlingRow, 6) in controlMoves\
                     and self.board.CanCastleKingside(colour) and self.board.board[row][column].piece.colour == colour:
-                        kingMoves.remove((rows, 7))
+                        kingMoves.remove(move)
 
-                    # This prevents queenside castling through a check
-                    if move == (rows, 3) and move in kingMoves and ((rows, 4) in controlMoves or (rows, 4) in kingControlMoves)\
+                    # This prevents queenside castling through a controlled square
+                    if move == (castlingRow, 3) and move in kingMoves and (castlingRow, 4) in controlMoves\
                     and self.board.CanCastleQueenside(colour) and self.board.board[row][column].piece.colour == colour:
-                        kingMoves.remove((rows, 3))
+                        kingMoves.remove(move)
+
         return kingMoves
 
     def NewPieceMoves(self, row, column, name, colour):
@@ -393,7 +403,7 @@ class Game:
         else:
             oppColour = 'White'
 
-        # Dynamically gets the method to calculate control moves for the given piece
+        # Dynamically gets the method to calculate valid moves for the given piece
         movesMethod = getattr(self, name.lower()).GetValidMoves
         validMoves = movesMethod(self.board.board, row, column)
         updatedValidMoves = []
@@ -401,11 +411,15 @@ class Game:
         pieceKey = self.KeyFromPosition(piecePositions, (row, column)) # Gets the key of each piece using KeyFromPosition method
         kingRow, kingColumn = self.PiecePositions('King', colour).get(1)
 
-        #This holds the positions of the pieces giving the check
-        positions = self.CheckingPiecePosition(colour)
+        # This holds the position of the piece giving the check
+        checkingPiecePosition = self.CheckingPiecePosition(colour)
 
-        #This stores the list of the different moves for blocking a queen, rook or bishop check
-        blockMoves = self.BlockMoves(colour)
+        # This stores the list of the different moves for blocking a check
+        blockMoves = self.BlockCheckMoves(colour)
+
+        if name == 'Pawn' and self.EnPassantPossible(row, column, colour):
+            self.EnPassantMove.extend(self.pawn.EnPassant(self.board.board, row, column))
+            validMoves.extend(self.pawn.EnPassant(self.board.board, row, column))
 
         enemyPieceData = {'Queen': [], 'Rook': [], 'Bishop': []}
         
@@ -430,16 +444,15 @@ class Game:
 
         # Checks if the King is in double check
         elif self.InCheck(colour) == 'double':
-            updatedValidMoves = []
+            updatedValidMoves = [] # No other piece apart from the king should be allowed to move in a double check
             
         # Checks if the King is in check by a single piece
         elif self.InCheck(colour) == 'single':
-            # This checks if the checking piece is in the valid moves of the selected piece and adds it to the updatedValidMoves list
-            for position in positions:
-                if position in validMoves:
-                    updatedValidMoves = [position]
+            # This checks if the checking piece is in the valid moves of the selected piece and makes it the ONLY valid move if so
+            if checkingPiecePosition in validMoves:
+                updatedValidMoves = [checkingPiecePosition]
 
-            # This loops through all the possible blocking squares and adds them to the updatedValidMoves list
+            # This loops through all the possible blocking squares and checks if they are in valid moves of the selected piece and adds them if so
             for move in blockMoves:
                 if move in validMoves:
                     updatedValidMoves.append(move)
@@ -578,7 +591,7 @@ class Game:
         
         for number in range(1, 10):
             for piece in ['Queen', 'Rook','Bishop', 'Knight', 'Pawn']:
-                position = self.PiecePositions(piece, oppColour).get(number) # Gets the piece position from the key in the EnemyPiecePositon dict.
+                position = self.PiecePositions(piece, oppColour).get(number) # Gets the piece position from the key in the piece positions dict.
                 if position != None:
                     pieceRow, pieceColumn = position
                     # Dynamically gets the method to calculate valid moves for each piece
@@ -606,104 +619,112 @@ class Game:
             return 'single'
         
         return None # Returns None if not in check
-
-    def PieceCheck(self, piece, number, colour):
+    
+    def CheckingPiecePosition(self, colour):
         if colour == 'White':
             oppColour = 'Black'
         else:
             oppColour = 'White'
 
-        oppPiecePosition = self.PiecePositions(piece, oppColour).get(number)
         kingRow, kingColumn = self.PiecePositions('King', colour).get(1)
 
-        if oppPiecePosition != None:
-            oppPieceRow, oppPieceColumn = oppPiecePosition
-            # Dynamically gets the method to calculate valid moves for each enemy piece
-            movesMethod = getattr(self, piece.lower()).GetValidMoves
-            oppPieceMoves = movesMethod(self.board.board, oppPieceRow, oppPieceColumn)
-        else:
-            oppPieceMoves = []
+        # The two for loops ensure EVERY possible enemy piece (excluding the king) has been checked for its position and moves
+        for number in range(1, 10):
+            for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
+                oppPiecePosition = self.PiecePositions(piece, oppColour).get(number)
 
-        # This checks if the King is in the enemy piece's moves and returns the position of the checking piece
-        if (kingRow, kingColumn) in oppPieceMoves:
-            return oppPieceRow, oppPieceColumn
+                # Checks if the piece exists
+                if oppPiecePosition != None:
+                    oppPieceRow, oppPieceColumn = oppPiecePosition
+                    # Dynamically gets the method to calculate valid moves for each enemy piece
+                    movesMethod = getattr(self, piece.lower()).GetValidMoves
+                    oppPieceMoves = movesMethod(self.board.board, oppPieceRow, oppPieceColumn)
+                else:
+                    oppPieceMoves = []
+
+                # This checks if the King is in the enemy piece's moves and returns the position of the checking piece
+                if (kingRow, kingColumn) in oppPieceMoves:
+                    return oppPieceRow, oppPieceColumn
         
-    def BlockPieceCheck(self, piece, number, colour):
+    def BlockCheckMoves(self, colour):
         moves = []
-        piecePosition = self.PieceCheck(piece, number, colour)
+        enemyPiecePosition = self.CheckingPiecePosition(colour)
         kingRow, kingColumn = self.PiecePositions('King', colour).get(1)
-        movesMethod = getattr(self, piece.lower()).GetValidMoves
 
-        if piecePosition != None:
-            pieceRow, pieceColumn = piecePosition
+        # Checks if the king is in check indirectly by checking if a checking piece exists
+        if enemyPiecePosition != None:
+            enemyPieceRow, enemyPieceColumn = enemyPiecePosition
+            pieceObject = self.board.PieceAtSquare(enemyPieceRow, enemyPieceColumn) # Gets the piece object from the row and column
+            piece = pieceObject.name
+            movesMethod = getattr(self, piece.lower()).GetValidMoves
 
             # Checks if the checking piece is a queen or a bishop and the 'check' is done diagonally
-            if (piece == 'Queen' or piece == 'Bishop') and (pieceRow != kingRow and pieceColumn != kingColumn):
+            if (piece == 'Queen' or piece == 'Bishop') and (enemyPieceRow != kingRow and enemyPieceColumn != kingColumn):
                 # Checks if the king is in the bottom right direction of the queen
-                if pieceRow < kingRow and pieceColumn < kingColumn:
+                if enemyPieceRow < kingRow and enemyPieceColumn < kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(pieceRow + 1, kingRow):
-                        for column in range(pieceColumn + 1, kingColumn):
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        for column in range(enemyPieceColumn + 1, kingColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(self.board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(self.board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the bottom left direction of the queen
-                elif pieceRow < kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow < kingRow and enemyPieceColumn > kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(pieceRow + 1, kingRow):
-                        for column in range(kingColumn + 1, pieceColumn):
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        for column in range(kingColumn + 1, enemyPieceColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(self.board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(self.board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the top right direction of the queen
-                elif pieceRow > kingRow and pieceColumn < kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn < kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(kingRow + 1, pieceRow):
-                        for column in range(pieceColumn + 1, kingColumn):
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        for column in range(enemyPieceColumn + 1, kingColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(self.board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(self.board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the top left direction of the queen
-                elif pieceRow > kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn > kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(kingRow + 1, pieceRow):
-                        for column in range(kingColumn + 1, pieceColumn):
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        for column in range(kingColumn + 1, enemyPieceColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(self.board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(self.board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
             # Checks if the checking piece is a queen or a rook and the 'check' is done rectilinearly
-            if (piece == 'Queen' or piece == 'Rook') and (pieceRow == kingRow or pieceColumn == kingColumn):
+            if (piece == 'Queen' or piece == 'Rook') and (enemyPieceRow == kingRow or enemyPieceColumn == kingColumn):
                 # Checks if the king is below the rook and they are both on the same column
-                if pieceRow < kingRow and pieceColumn == kingColumn:
+                if enemyPieceRow < kingRow and enemyPieceColumn == kingColumn:
                     # This for loop is then used to check all the squares between the king and the rook and then adds them to moves
-                    for row in range(pieceRow + 1, kingRow):
-                        moves.append((row, pieceColumn))
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        moves.append((row, enemyPieceColumn))
 
                 # Checks if the king is above the rook and they're on the same column
-                elif pieceRow > kingRow and pieceColumn == kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn == kingColumn:
                     # This also checks all the squares between the king and rook and adds them to moves
-                    for row in range(kingRow + 1, pieceRow):
-                        moves.append((row, pieceColumn))
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        moves.append((row, enemyPieceColumn))
 
                 # Checks if the king and rook are on the same row and the king is to the right of the rook
-                elif pieceRow == kingRow and pieceColumn < kingColumn:
+                elif enemyPieceRow == kingRow and enemyPieceColumn < kingColumn:
                     # Adds all the squares between the king and rook in this scenario to moves
-                    for column in range(pieceColumn + 1, kingColumn):
-                        moves.append((pieceRow, column))
+                    for column in range(enemyPieceColumn + 1, kingColumn):
+                        moves.append((enemyPieceRow, column))
 
                 # Checks if the king and rook are on the same row and the king is to the left of the rook
-                elif pieceRow == kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow == kingRow and enemyPieceColumn > kingColumn:
                     # Adds all the squares between the king and rook to moves
-                    for column in range(kingColumn + 1, pieceColumn):
-                        moves.append((pieceRow, column))
+                    for column in range(kingColumn + 1, enemyPieceColumn):
+                        moves.append((enemyPieceRow, column))
 
         return moves
     

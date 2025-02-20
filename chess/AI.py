@@ -12,7 +12,7 @@ def Minimax(position, depth, maxPlayer, game, alpha, beta):
     if maxPlayer:
         maxEval = float('-inf')
         bestMove = None
-        for move in AllMoves(position, 'White', game):
+        for move in CaptureMoves(position, 'White', game):
             evaluation = Minimax(move, depth - 1, False, game, alpha, beta)[0]
             maxEval = max(maxEval, evaluation)
             if evaluation == maxEval:
@@ -25,7 +25,7 @@ def Minimax(position, depth, maxPlayer, game, alpha, beta):
     else:
         minEval = float('inf')
         bestMove = None
-        for move in AllMoves(position, 'Black', game):
+        for move in CaptureMoves(position, 'Black', game):
             evaluation = Minimax(move, depth - 1, True, game, alpha, beta)[0]
             minEval = min(minEval, evaluation)
             if evaluation == minEval:
@@ -40,7 +40,7 @@ def EasyMode(position, game):
     moves = AllMoves(position, 'Black', game) # Stores the new board with the new move
 
     # Checks if it's valid
-    if moves:
+    if moves != []:
         return random.choice(moves) # Returns the first new board state encountererd
     
 def MediumMode(position, game):
@@ -57,10 +57,10 @@ def HardMode(position, game):
     evaluations = []
     moves = AllMoves(position, 'Black', game)
     for move in moves:
-        evaluations.append(aiGame.MediumEvaluation(move))
+        evaluations.append(aiGame.HardEvaluation(move))
     
     for positions in moves:
-        if aiGame.MediumEvaluation(positions) == max(evaluations):
+        if aiGame.HardEvaluation(positions) == max(evaluations):
             return positions
         
 def PlayMove(square, move, board):
@@ -93,6 +93,31 @@ def AllMoves(board, colour, game):
                 tempSquare = tempBoard.GetPieceSquare(row, column)
                 newBoard = PlayMove(tempSquare, moves, tempBoard)
                 boardMoves.append(newBoard)
+
+    return boardMoves
+
+def CaptureMoves(board, colour, game):
+    boardMoves = []
+    if colour == 'Black':
+        oppColour = 'White'
+    else:
+        oppColour = 'Black'
+
+    enemyPositions = game.AllPiecePositions(oppColour)
+
+    for piece in ['King', 'Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
+        validMoves = game.PieceMoves(piece, colour)
+
+        for num, move in validMoves.items():
+            for moves in move:
+                if moves in enemyPositions:
+                    position = game.PiecePositions(piece, colour).get(num)
+                    if position != None:
+                        row, column = position
+                    tempBoard = deepcopy(board)
+                    tempSquare = tempBoard.GetPieceSquare(row, column)
+                    newBoard = PlayMove(tempSquare, moves, tempBoard)
+                    boardMoves.append(newBoard)
 
     return boardMoves
 
