@@ -3,31 +3,49 @@ import math
 
 class AIGame:
     def __init__(self):
+        # All the global variables to be used are here
         self.pawn = Pawn(Piece)
         self.bishop = Bishop(Piece)
         self.knight = Knight(Piece)
         self.rook = Rook(Piece)
         self.queen = Queen(Piece)
         self.king = King(Piece)
-        self.squareSelected = None
-        self.turn = 'White'
+        self.turn = 'White' # Initialised to white because white makes the first move
         self.validPieceMoves = []
+        self.EnPassantMove = []
     
     def PiecePositions(self, board, piece, colour):
         pieces = {1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}
         positions = []
 
+        # The two for loops check all squares on the board
         for row in range(0, 8):
             for column in range(1, 9):
-                # Row and column for enemy piece added to positions list
+                # Checks if a piece of a player has been encountered
                 if board.board[row][column].piece != None and board.board[row][column].piece.name == piece\
                 and board.board[row][column].piece.colour == colour:
-                    positions.append((row, column))
+                    positions.append((row, column)) # Adds the position as a tuple to the positions list
 
+                    # Uses the values in the positions list and adds them IN TURN to be the value of the keys in the dictionary
+                    # For instance, if positions = [(1, 1), (2, 1)], then pieces would be {1: (1, 1), 2: (2, 1), 3: None} and so on
                     for key, value in zip(pieces.keys(), positions):
                         pieces[key] = value
 
         return pieces
+    
+    # This method holds the positions of all the pieces of a certain colour
+    def AllPiecePositions(self, board, colour):
+        positions = []
+
+        # The two for loops ensure all squares on the board are checked
+        for row in range(0, 8):
+            for column in range(1, 9):
+                # This adds the positions of all the pieces of the chosen player (depending on colour) to the positions list
+                if board.board[row][column].piece != None and board.board[row][column].piece.colour == colour\
+                and board.board[row][column].piece.name != 'King':
+                    positions.append((row, column))
+
+        return positions
 
     def PieceMoves(self, board, piece, colour):
         moves = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: []}
@@ -63,24 +81,6 @@ class AIGame:
                 return key # Returns the key from the value
             
         return None
-
-    def CheckingPiecePosition(self, board, colour):
-        positions = []
-        for number in range(1, 10):
-            for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
-                # Adds the position of any piece giving the check to the positions list
-                positions.append(self.PieceCheck(board, piece, number, colour))
-
-        return positions
-    
-    def BlockMoves(self, board, colour):
-        moves = []
-        for number in range(1, 10):
-            for piece in ['Queen', 'Rook', 'Bishop']:
-                # Adds the appropriate blocking moves to the moves list depending on the piece giving the check
-                moves.extend(self.BlockPieceCheck(board, piece, number, colour))
-
-        return moves
     
     def AllPieceMoves(self, board, colour):
         positions = []
@@ -104,80 +104,69 @@ class AIGame:
     
     def Checkmate(self, board, colour):
         # Checks if the King is in check and whose turn it is
-        if self.InCheck(board, colour) != None and colour == self.turn:
+        if self.InCheck(board, colour) != None:
             # Checks if the list from AllPieceMoves is empty indicating checkmate as the king is in check
             if self.AllPieceMoves(board, colour) == []:
                 return True
         
         return False
     
-    def Stalemate(self, board):
-        kingRow, kingColumn = self.PiecePositions(board, 'King', self.turn).get(1)
+    def Stalemate(self, board, colour):
+        kingRow, kingColumn = self.PiecePositions(board, 'King', colour).get(1)
         # Checks if the King cannot move
-        if self.NewKingMoves(board, kingRow, kingColumn, self.turn) == []:
+        if self.NewKingMoves(board, kingRow, kingColumn, colour) == []:
             # Checks if the King is not in check but the AllMovesPiece list is empty indicating Stalemate
-            if self.InCheck(board, self.turn) == None and self.AllPieceMoves(board, self.turn) == []:
+            if self.InCheck(board, colour) == None and self.AllPieceMoves(board, colour) == []:
                 return True
         
         return False
 
     def PlayerPieces(self, board, colour):
-        playerPieces = []
+        pieceValues = []
 
+        # The two for loops check every single square on the board
         for row in range(0, 8):
             for column in range(1, 9):
-                # Adds the names of all the pieces of the white or black player (depending on colour) to the playerPieces list
-                if board.board[row][column].piece != None and board.board[row][column].piece.colour == colour:
-                    playerPieces.append(board.board[row][column].piece.name)
+                square = board.board[row][column]
+                # Checks if the there is a piece on the square and the piece is not a king
+                if square.piece != None and square.piece.colour == colour and square.piece.name != 'King':
+                    # Adds the values of the white or black pieces depending on colcour to the piece values list
+                    pieceValues.append(square.piece.value) 
 
-        return playerPieces
+        return pieceValues
     
     def AllPieces(self, board):
-        allPieces = []
+        pieceValues = []
         
+        # The two for loops check every single square on the board
         for row in range(0, 8):
             for column in range(1, 9):
-                # Adds the name of all the pieces of every single piece on the board
-                if board.board[row][column].piece != None:
-                    allPieces.append(board.board[row][column].piece.name)
+                square = board.board[row][column]
+                # Checks if the there is a piece on the square and the piece is not a king
+                if square.piece != None and square.piece.name != 'King':
+                    pieceValues.append(square.piece.value) # Adds the value of the piece to the piece values list
 
-        return allPieces
+        return pieceValues
 
     def InsufficientMaterial(self, board):
-        whitePieces = self.PlayerPieces(board, 'White')
-        blackPieces = self.PlayerPieces(board, 'Black')
-        allPieces = self.AllPieces(board)
+        whitePieces = self.PlayerPieces(board, 'White') # Stores the piece values of all white pieces
+        blackPieces = self.PlayerPieces(board, 'Black') # Stores the piece values of all black pieces
+        allPieces = self.AllPieces() # Stores the piece values of all pieces
+        pawnValue = 1
 
-        if allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 0\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
+        # Checks if only kings are left or kings and 1 bishop or knight is left
+        if allPieces == [] or (len(allPieces) == 1 and 3 <= allPieces[0] <= 3.5):
             return True
         
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 1\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 0\
-        and allPieces.count('Bishop') == 1 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 1\
-        and whitePieces.count('Bishop') == 0 and blackPieces.count('Bishop') == 1 and blackPieces.count('Knight') == 0\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 0\
-        and whitePieces.count('Bishop') == 1 and blackPieces.count('Bishop') == 0 and blackPieces.count('Knight') == 1\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and whitePieces.count('Knight') == 0\
-        and whitePieces.count('Bishop') == 1 and blackPieces.count('Bishop') == 1 and blackPieces.count('Knight') == 0\
-        and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
-        
-        elif allPieces.count('King') == 2 and allPieces.count('Pawn') == 0 and allPieces.count('Knight') == 2\
-        and allPieces.count('Bishop') == 0 and allPieces.count('Rook') == 0 and allPieces.count('Queen') == 0:
-            return True
+        # Checks if two pieces aside from the king's are left and no pawns
+        elif len(allPieces) == 2 and pawnValue not in allPieces:
+            # Checks if a knight or bishop for both players exist
+            if 6 <= sum(allPieces) <= 7 and len(whitePieces) != 0  and len(blackPieces) != 0:
+                return True
+            
+            # Checks if only two knights are left
+            elif sum(allPieces) == 6:
+                return True
         
         return False
     
@@ -190,13 +179,45 @@ class AIGame:
         else:
             self.turn = 'White'
 
+    def EnPassantPossible(self, board, row, column, colour, side):
+        currentSquare = board.board[row][column]
+
+        # Uses the colour parameter to determine the row the pawn is supposed to be for enpassant to happen and its direction
+        if colour == 'White':
+            enPassantRow = 3
+            direction = -1
+        else:
+            enPassantRow = 4
+            direction = 1
+
+        # Checks what side it is
+        if side == 'left':
+            newColumn = column - 1 
+        else:
+            newColumn = column + 1
+
+        newRow = row + direction
+
+        # validation to ensure that the new row and column are within the bounds of the board
+        if 1 <= newColumn <= 8 and 0 <= newRow <= 7 and 0 <= row + direction * 2 <= 7:
+            newSquare = board.board[row][newColumn]
+            captureSquare = board.board[newRow][newColumn]
+            checkSquare = board.board[row + direction * 2][newColumn]
+
+            # Checks if all enPassant conditions have been met
+            if row == enPassantRow and newSquare.piece != None and newSquare.piece.name == 'Pawn'\
+            and newSquare.piece.colour != currentSquare.piece.colour and captureSquare.piece == None and checkSquare.piece == None:
+                return True
+
     def NewKingMoves(self, board, row, column, colour):
+        # Uses the colour parameter to determine the castling row as well as the colour of the enemy.
         if colour == 'White':
             oppColour = 'Black'
-            rows = 7
+            castlingRow = 7 # White starts at the bottom
         else:
             oppColour = 'White'
-            rows = 0
+            castlingRow = 0 # Black starts at the top
+
         kingMoves = self.king.GetValidMoves(board.board, row, column)
         shortCastleMoves = self.king.GetShortCastleMoves(board.board, row, column)
         longCastleMoves = self.king.GetLongCastleMoves(board.board, row, column)
@@ -234,24 +255,25 @@ class AIGame:
                         kingMoves.remove(move)
 
                     # This prevents kingside castling through a check
-                    if move == (rows, 7) and move in kingMoves and (rows, 6) in controlMoves\
+                    if move == (castlingRow, 7) and move in kingMoves and (castlingRow, 6) in controlMoves\
                     and board.CanCastleKingside(colour) and board.board[row][column].piece.colour == colour:
-                        kingMoves.remove((rows, 7))
+                        kingMoves.remove((castlingRow, 7))
 
                     # This prevents queenside castling through a check
-                    if move == (rows, 3) and move in kingMoves and (rows, 4) in controlMoves\
+                    if move == (castlingRow, 3) and move in kingMoves and (castlingRow, 4) in controlMoves\
                     and board.CanCastleQueenside(colour) and board.board[row][column].piece.colour == colour:
-                        kingMoves.remove((rows, 3))
+                        kingMoves.remove((castlingRow, 3))
 
         return kingMoves
 
     def NewPieceMoves(self, board, row, column, name, colour):
+        # Uses the colour parameter to determine the colour of the enemy
         if colour == 'White':
             oppColour = 'Black'
         else:
             oppColour = 'White'
 
-        # Dynamically gets the method to calculate control moves for the given piece
+        # Dynamically gets the method to calculate valid moves for the given piece
         movesMethod = getattr(self, name.lower()).GetValidMoves
         validMoves = movesMethod(board.board, row, column)
         updatedValidMoves = []
@@ -259,11 +281,18 @@ class AIGame:
         pieceKey = self.KeyFromPosition(piecePositions, (row, column)) # Gets the key of each piece using KeyFromPosition method
         kingRow, kingColumn = self.PiecePositions(board, 'King', colour).get(1)
 
-        #This holds the positions of the pieces giving the check
-        positions = self.CheckingPiecePosition(board, colour)
+        # This holds the position of the piece giving the check
+        checkingPiecePosition = self.CheckingPiecePosition(board, colour)
 
-        #This stores the list of the different moves for blocking a queen, rook or bishop check
-        blockMoves = self.BlockMoves(board, colour)
+        # This stores the list of the different moves for blocking a check
+        blockMoves = self.BlockCheckMoves(board, colour)
+
+        if name == 'Pawn' and self.EnPassantPossible(board, row, column, colour, 'left'):
+            self.EnPassantMove.extend(self.pawn.GetEnPassantMove(board.board, row, column, 'left'))
+            validMoves.extend(self.pawn.GetEnPassantMove(board.board, row, column, 'left'))
+        elif name == 'Pawn' and self.EnPassantPossible(board, row, column, colour, 'right'):
+            self.EnPassantMove.extend(self.pawn.GetEnPassantMove(board.board, row, column, 'right'))
+            validMoves.extend(self.pawn.GetEnPassantMove(board.board, row, column, 'right'))
 
         enemyPieceData = {'Queen': [], 'Rook': [], 'Bishop': []}
         
@@ -288,16 +317,15 @@ class AIGame:
 
         # Checks if the King is in double check
         elif self.InCheck(board, colour) == 'double':
-            updatedValidMoves = []
+            updatedValidMoves = [] # No other piece apart from the king should be allowed to move in a double check
             
         # Checks if the King is in check by a single piece
         elif self.InCheck(board, colour) == 'single':
-            # This checks if the checking piece is in the valid moves of the selected piece and adds it to the updatedValidMoves list
-            for position in positions:
-                if position in validMoves:
-                    updatedValidMoves = [position]
+            # This checks if the checking piece is in the valid moves of the selected piece and makes it the ONLY valid move if so
+            if checkingPiecePosition in validMoves:
+                updatedValidMoves = [checkingPiecePosition]
 
-            # This loops through all the possible blocking squares and adds them to the updatedValidMoves list
+            # This loops through all the possible blocking squares and checks if they are in valid moves of the selected piece and adds them if so
             for move in blockMoves:
                 if move in validMoves:
                     updatedValidMoves.append(move)
@@ -423,6 +451,7 @@ class AIGame:
         return updatedValidMoves
     
     def InCheck(self, board, colour):
+        # Uses the colour parameter to determine the colour of the enemy
         if colour == 'White':
             oppColour = 'Black'
         else:
@@ -464,104 +493,113 @@ class AIGame:
             return 'single'
         
         return None # Else it returns None
-
-    def PieceCheck(self, board, piece, number, colour):
+    
+    def CheckingPiecePosition(self, board, colour):
+        # Uses the colour parameter to determine the colour of the enemy
         if colour == 'White':
             oppColour = 'Black'
         else:
             oppColour = 'White'
 
-        oppPiecePosition = self.PiecePositions(board, piece, oppColour).get(number)
         kingRow, kingColumn = self.PiecePositions(board, 'King', colour).get(1)
 
-        if oppPiecePosition != None:
-            oppPieceRow, oppPieceColumn = oppPiecePosition
-            # Dynamically gets the method to calculate valid moves for each enemy piece
-            movesMethod = getattr(self, piece.lower()).GetValidMoves
-            oppPieceMoves = movesMethod(board.board, oppPieceRow, oppPieceColumn)
-        else:
-            oppPieceMoves = []
+        # The two for loops ensure EVERY possible enemy piece (excluding the king) has been checked for its position and moves
+        for number in range(1, 10):
+            for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
+                oppPiecePosition = self.PiecePositions(board, piece, oppColour).get(number)
 
-        # This checks if the King is in the enemy piece's moves and returns the position of the checking piece
-        if (kingRow, kingColumn) in oppPieceMoves:
-            return oppPieceRow, oppPieceColumn
+                # Checks if the piece exists
+                if oppPiecePosition != None:
+                    oppPieceRow, oppPieceColumn = oppPiecePosition
+                    # Dynamically gets the method to calculate valid moves for each enemy piece
+                    movesMethod = getattr(self, piece.lower()).GetValidMoves
+                    oppPieceMoves = movesMethod(board.board, oppPieceRow, oppPieceColumn)
+                else:
+                    oppPieceMoves = []
+
+                # This checks if the King is in the enemy piece's moves and returns the position of the checking piece
+                if (kingRow, kingColumn) in oppPieceMoves:
+                    return oppPieceRow, oppPieceColumn
         
-    def BlockPieceCheck(self, board, piece, number, colour):
+    def BlockCheckMoves(self, board, colour):
         moves = []
-        piecePosition = self.PieceCheck(board, piece, number, colour)
+        enemyPiecePosition = self.CheckingPiecePosition(board, colour)
         kingRow, kingColumn = self.PiecePositions(board, 'King', colour).get(1)
-        movesMethod = getattr(self, piece.lower()).GetValidMoves
 
-        if piecePosition != None:
-            pieceRow, pieceColumn = piecePosition
+        # Cheks if the position of the checking piece exists
+        if enemyPiecePosition != None:
+            enemyPieceRow, enemyPieceColumn = enemyPiecePosition
+            pieceObject = board.PieceAtSquare(enemyPieceRow, enemyPieceColumn) # Gets the piece object from the row and column
+            piece = pieceObject.name
+            movesMethod = getattr(self, piece.lower()).GetValidMoves
 
             # Checks if the checking piece is a queen or a bishop and the 'check' is done diagonally
-            if (piece == 'Queen' or piece == 'Bishop') and (pieceRow != kingRow and pieceColumn != kingColumn):
+            if (piece == 'Queen' or piece == 'Bishop') and (enemyPieceRow != kingRow and enemyPieceColumn != kingColumn):
                 # Checks if the king is in the bottom right direction of the queen
-                if pieceRow < kingRow and pieceColumn < kingColumn:
+                if enemyPieceRow < kingRow and enemyPieceColumn < kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(pieceRow + 1, kingRow):
-                        for column in range(pieceColumn + 1, kingColumn):
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        for column in range(enemyPieceColumn + 1, kingColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the bottom left direction of the queen
-                elif pieceRow < kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow < kingRow and enemyPieceColumn > kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(pieceRow + 1, kingRow):
-                        for column in range(kingColumn + 1, pieceColumn):
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        for column in range(kingColumn + 1, enemyPieceColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the top right direction of the queen
-                elif pieceRow > kingRow and pieceColumn < kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn < kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(kingRow + 1, pieceRow):
-                        for column in range(pieceColumn + 1, kingColumn):
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        for column in range(enemyPieceColumn + 1, kingColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
                 # Checks if the king is in the top left direction of the queen
-                elif pieceRow > kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn > kingColumn:
                     # Checks the squares between the king and the queen
-                    for row in range(kingRow + 1, pieceRow):
-                        for column in range(kingColumn + 1, pieceColumn):
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        for column in range(kingColumn + 1, enemyPieceColumn):
                             # Checks if the squares checked by the for loop are in the valid moves of the queen from that position
                             # and if they are, they are added to moves.
-                            if (row, column) in movesMethod(board.board, pieceRow, pieceColumn):
+                            if (row, column) in movesMethod(board.board, enemyPieceRow, enemyPieceColumn):
                                 moves.append((row, column))
 
             # Checks if the checking piece is a queen or a rook and the 'check' is done rectilinearly
-            if (piece == 'Queen' or piece == 'Rook') and (pieceRow == kingRow or pieceColumn == kingColumn):
+            if (piece == 'Queen' or piece == 'Rook') and (enemyPieceRow == kingRow or enemyPieceColumn == kingColumn):
                 # Checks if the king is below the rook and they are both on the same column
-                if pieceRow < kingRow and pieceColumn == kingColumn:
+                if enemyPieceRow < kingRow and enemyPieceColumn == kingColumn:
                     # This for loop is then used to check all the squares between the king and the rook and then adds them to moves
-                    for row in range(pieceRow + 1, kingRow):
-                        moves.append((row, pieceColumn))
+                    for row in range(enemyPieceRow + 1, kingRow):
+                        moves.append((row, enemyPieceColumn))
 
                 # Checks if the king is above the rook and they're on the same column
-                elif pieceRow > kingRow and pieceColumn == kingColumn:
+                elif enemyPieceRow > kingRow and enemyPieceColumn == kingColumn:
                     # This also checks all the squares between the king and rook and adds them to moves
-                    for row in range(kingRow + 1, pieceRow):
-                        moves.append((row, pieceColumn))
+                    for row in range(kingRow + 1, enemyPieceRow):
+                        moves.append((row, enemyPieceColumn))
 
                 # Checks if the king and rook are on the same row and the king is to the right of the rook
-                elif pieceRow == kingRow and pieceColumn < kingColumn:
+                elif enemyPieceRow == kingRow and enemyPieceColumn < kingColumn:
                     # Adds all the squares between the king and rook in this scenario to moves
-                    for column in range(pieceColumn + 1, kingColumn):
-                        moves.append((pieceRow, column))
+                    for column in range(enemyPieceColumn + 1, kingColumn):
+                        moves.append((enemyPieceRow, column))
 
                 # Checks if the king and rook are on the same row and the king is to the left of the rook
-                elif pieceRow == kingRow and pieceColumn > kingColumn:
+                elif enemyPieceRow == kingRow and enemyPieceColumn > kingColumn:
                     # Adds all the squares between the king and rook to moves
-                    for column in range(kingColumn + 1, pieceColumn):
-                        moves.append((pieceRow, column))
+                    for column in range(kingColumn + 1, enemyPieceColumn):
+                        moves.append((enemyPieceRow, column))
 
         return moves
     
@@ -775,19 +813,6 @@ class AIGame:
     # This method calculates how much more/less material black has than white
     def MaterialEvaluation(self, board):
         return self.Material(board, 'Black') - self.Material(board, 'White')
-    
-    # This method holds the positions of all the pieces of a certain colour
-    def AllPiecePositions(self, board, colour):
-        positions = []
-
-        # The two for loops ensure all squares on the board are checked
-        for row in range(0, 8):
-            for column in range(1, 9):
-                # This adds the positions of all the pieces of the chosen player (depending on colour) to the positions list
-                if board.board[row][column].piece != None and board.board[row][column].piece.colour == colour:
-                    positions.append((row, column))
-
-        return positions
 
     # This method encourages the AI to have at least 2 pawns in the centre
     def CentralPresence(self, board):
@@ -800,7 +825,7 @@ class AIGame:
         for pos in self.PiecePositions(board, 'Pawn', 'Black').values():
             # Checks if their current position is in the central squares list
             if pos in centralSquares:
-                    score += 1 # Adds 1 to score to encourage the AI to have 2 pawns in the centre at least
+                score += 1 # Adds 1 to score to encourage the AI to have 2 pawns in the centre at least
 
         return score
     
@@ -830,6 +855,7 @@ class AIGame:
         defenseCount = 0 # Variable to store the number of friendly piece that defend a square/friendly piece
 
         enemyPieceMoves = self.AllPieceMoves(board, 'White') # Holds a squares controlled by an enemy piece
+        enemyPieceMoves.extend(self.SkewerMoves(board, 'White')) # Adds the skewer moves to list of enemy piece moves
         friendlyDefenseMoves = self.PieceDefenseMoves(board, 'Black') # Holds all squares controlled by a friendly piece
 
         # Ensure the positions all black pieces are checked
@@ -850,31 +876,42 @@ class AIGame:
             score -= 7 * (attackCount - defenseCount) # Reduces the score by a lot to discourage moving to such positions
 
         return score
+
+    # This method gets the relative value of a piece from its position
+    def PieceValueData(self, board, position):
+        piece = board.PieceAtSquare(position[0], position[1])
+
+        pieceValue = piece.value
+        
+        return pieceValue
     
     # This method encourages the AI to move a piece with a higher value if attacked by a piece with a lower value
     def HighValueAttacked(self, board):
         score = 0
-        # I manually stored the relative values in this dictionary so its easier to access
-        pieceMappings = {'Queen': 9, 'Rook': 5, 'Bishop': 3, 'Knight': 3, 'Pawn': 1}
+        friendlyPositions = self.AllPiecePositions(board, 'Black')
+        enemyPositions = self.AllPiecePositions(board, 'White')
+        lowestScore = float('inf') # I set it to +infinity because I want to keep track of the lowest score
 
-        # Only checks from pawn to a rook because the queen is the highest value piece (after the king)
-        for enemyPiece in ['Pawn', 'Bishop', 'Knight', 'Rook']:
-            enemyPieceMoves = self.PieceMoves(board, enemyPiece, 'White') # Stores all of white's moves depending on the piece
-    
-            # Ensures the positions of all friendly pieces are checked excluding the pawn because it has the lowest value
-            for friendlyPiece in ['Queen', 'Rook', 'Bishop', 'Knight']:
-                piecePositions = self.PiecePositions(board, friendlyPiece, 'Black')
+        # Loops through the positions of all black pieces
+        for friendlyPos in friendlyPositions:
+            value = self.PieceValueData(board, friendlyPos) # Stores the relative value of the piece from its position
+            # Loops through the positions of all enemy pieces
+            for enemyPos in enemyPositions:
+                enemyMove = self.PieceMovesData(board, enemyPos) # Stores the moves the enemy piece can make from its position
+                enemyValue = self.PieceValueData(board, enemyPos) # Stores the relative value of the enemy piece from its position
 
-                # Loops through all positions of the current friendly piece
-                for pos in piecePositions.values():
-                    # Loops through all the move lists of an enemy piece
-                    for move in enemyPieceMoves.values():
-                        # Checks if the friendly piece is in the valid moves of an enemy piece with a lower relative value
-                        if pos != None and pos in move and pieceMappings[enemyPiece] < pieceMappings[friendlyPiece]:
-                            # Reduces the score by a lot to encourage the AI to move the piece away
-                            score -= 6 * (pieceMappings[friendlyPiece] - pieceMappings[enemyPiece])
-                            
-        return score
+                # Checks if any of the black pieces are in any of the white piece's moves and the black piece has more relative value
+                if friendlyPos in enemyMove and value > enemyValue:
+                    score -= 6 * (value - enemyValue) # Reduces the score by 6 times the value deficit to encourage moving out of danger
+                    # Checks if the score is lower than the lowest score
+                    if score < lowestScore:
+                        lowestScore = score # Reassigns the lowest score
+
+        # Checks if a piece with a higher value is being attacked by a piece with a lower value
+        if lowestScore != float('inf'):
+            return lowestScore
+        else:
+            return 0 # returns 0 if no high value piece is under attack by a lower value piece       
     
     # This method checks if the King is castled, manually
     def IsCastled(self, board, side):
@@ -930,21 +967,35 @@ class AIGame:
         
         # Checks if the black king can castle queenside or kingside
         if board.CanCastleKingside('Black') or board.CanCastleQueenside('Black'):
-            positionalScore += 2.5 # Increases the positional score so it encourages the AI to be in a position that it can castle
+            # Increases the positional score so it encourages the AI to be in a position that it can castle
+            # but with by a less amount than being actually castled so the AI doesn't continue to stay in a position where it CAN castle.
+            positionalScore += 2.5
 
-        # This checks the valid moves of all pieces excluding the king
-        for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
-            validMoves = self.PieceMoves(board, piece, 'Black')
+        # Checks if the current game phase is the opening
+        if self.GamePhases(board) == 'Opening':
+            # This checks the valid moves of all pieces excluding the king and queen
+            for piece in ['Rook', 'Bishop', 'Knight', 'Pawn']:
+                validMoves = self.PieceMoves(board, piece, 'Black')
 
-            # Loops through all the move lists for each piece
-            for move in validMoves.values():
-                numMoves += len(move) # Adds the length of each list to numMoves so the AI can prioritise activating its pieces
+                # Loops through all the move lists for each piece
+                for move in validMoves.values():
+                    numMoves += len(move) # Adds the length of each list to numMoves so the AI can prioritise activating its pieces
+
+        # Checks if the current game phase is not in the opening
+        elif self.GamePhases(board) != 'Opening':
+            # This checks the valid moves of all pieces excluding the king
+            for piece in ['Queen', 'Rook', 'Bishop', 'Knight', 'Pawn']:
+                validMoves = self.PieceMoves(board, piece, 'Black')
+
+                # Loops through all the move lists for each piece
+                for move in validMoves.values():
+                    numMoves += len(move) # Adds the length of each list to numMoves so the AI can prioritise activating its pieces
 
         # Allows the AI to find checkmate in 1 if possible
         if self.Checkmate(board, 'White'):
             positionalScore += 100000000
 
-        # Checks if the AI can move
+        # Prevents taking the log of 0 which would result in an error
         if numMoves > 0:
             # Takes a logarithm of the no. of moves so it doesn't contribute too much a factor into the evaluation
             mobilityScore = math.log(numMoves)
@@ -955,113 +1006,241 @@ class AIGame:
         return mobilityScore * 0.6 + positionalScore + self.Defense(board) + self.HighValueAttacked(board)\
         + centralControl * 0.8 + positiveAdvantage
     
+    # This method gets the current phase of the game by checking the number of pieces left on the board
     def GamePhases(self, board):
         phase = None
+
+        # Checks if there are 25 or more pieces left
         if len(self.AllPieces(board)) >= 25:
             phase = 'Opening'
+
+        # Checks if there are more than 15 pieces left but less than 25 pieces
         elif 15 <= len(self.AllPieces(board)) < 25:
             phase = 'Middlegame'
+
+        # Checks if there are less than 15 pieces left
         elif len(self.AllPieces(board)) < 15:
             phase = 'Endgame'
 
         return phase
+    
+    # This method uses the position of any piece to get its moves
+    def PieceMovesData(self, board, position):
+        piece = board.PieceAtSquare(position[0], position[1])
+        movesMethod = getattr(self, piece.name.lower()).GetValidMoves
+        moves = movesMethod(board.board, position[0], position[1])
 
+        return moves
+
+    def SkewerMoves(self, board, colour):
+        positions = []
+        moves = []
+
+        # The two for loops check all squares on the board
+        for row in range(0, 8):
+            for column in range(1, 9):
+                # This adds the positions of all the pieces of the set player to the positions list
+                if board.board[row][column].piece != None and board.board[row][column].piece.colour == colour:
+                    positions.append((row, column))
+
+        # This loops through all the values now in the positions list
+        for pos in positions:
+            piece = board.PieceAtSquare(pos[0], pos[1]) # Gets the piece attribute at that position
+            # Checks if the piece is a queen, bishop or rook
+            if piece.name == 'Queen' or piece.name == 'Bishop' or piece.name == 'Rook':
+                # Dynamically gets the GetValidMoves function depending on the piece
+                movesMethod = getattr(self, piece.name.lower()).GetValidMoves
+                moves.extend(movesMethod(board.board, pos[0], pos[1], 'Skewer')) # Adds the skewer moves only
+
+        return moves
+
+    # This uses a better defense logic from the medium AI so it doesn't blunder easily
+    def BetterDefense(self, board):
+        score = 0
+        allPieces = {}
+        lowestScore = float('inf') # I set it to +infinity because I want to keep track of the lowest score
+        allPositions = self.AllPiecePositions(board, 'Black') 
+        enemyPieceMoves = self.AllPieceMoves(board, 'White') 
+        enemyPieceMoves.extend(self.SkewerMoves(board, 'White')) # This adds the skewer moves to the enemy moves so it can be considered
+        defenceMoves = self.PieceDefenseMoves(board, 'Black')
+
+        # Loops through the positions of all friendly(black) pieces
+        for pos in allPositions:
+            attackCount = enemyPieceMoves.count(pos) # Gets the attack count by counting the number of times its position is in the enemy moves
+            defenseCount = defenceMoves.count(pos) # Gets the defense count by counting the number of times of its position is in the defense moves
+
+            # Updates the all pieces dictionary so it now holds the position of all pieces and how much they are defended.
+            allPieces.update({pos: defenseCount - attackCount})
+
+        # Loops through the positions and defenseScores
+        for position, defenseScore in allPieces.items():
+            piece = board.PieceAtSquare(position[0], position[1]) # Gets the piece attribute using the board method PieceAtSquare
+
+            # Checks if a piece is attacked more than it is defended
+            if defenseScore < 0:
+                # Checks if the piece is a pawn
+                if piece.value == 1:
+                    score = -3 # Takes away a constant score
+                else:
+                    # If it's not a piece it takes away the score related to the piece's value and how much it was attacked
+                    score = defenseScore * piece.value * 1.35
+
+                # Checks if the score is lower than the lowest score
+                if score < lowestScore:
+                    lowestScore = score # Reassigns lowest score
+
+        # Checks if any piece is attack more times than defended
+        if lowestScore != float('inf'):
+            return lowestScore
+        else:
+            return 0 # Returns 0 if all pieces are defended more or the same number of times than attacked
+
+    # This method encourages the AI to attack undefended pieces but ensures they can't be captured by said undefended pieces
+    def AttackUndefended(self, board):
+        score = 0
+        undefendedPiecePositions = []
+        enemyPiecePositions = self.AllPiecePositions(board, 'White') # Stores the positions of all enemy pieces
+        piecePositions = self.AllPiecePositions(board, 'Black')
+        piecePositions.append(self.PiecePositions(board, 'King', 'Black').get(1)) # Adds the position of the king
+
+        # Loops through all positions of enemy pieces
+        for positions in enemyPiecePositions:
+            # Checks if the piece is not defended
+            if positions not in self.PieceDefenseMoves(board, 'White'):
+                undefendedPiecePositions.append(positions) # Adds it to the undefended list
+
+        # Loops through the positions of all friendly pieces
+        for pos in piecePositions:
+            moves = self.PieceMovesData(board, pos) # Uses their current position to get their moves
+            # Loops through all undefended enemy pieces
+            for enemypos in undefendedPiecePositions:
+                # Checks if the enemy piece is in the valid moves of the friendly piece but the friendly piece can't be captured by enemy piece
+                if enemypos in moves and pos not in self.PieceMovesData(board, enemypos):
+                    score += 1.8
+
+        return score
+    
+    # This method holds the moves a player can make without getting captured by an enemy piece
     def UsefulMoves(self, board, colour):
         if colour == 'White':
             oppColour = 'Black'
         else:
             oppColour = 'White'
-        moves = []
-        enemyMoves = self.AllPieceMoves(board, oppColour)
-        friendlyMoves = self.AllPieceMoves(board, colour)
+
+        moves = [] # To be used to store all useful moves
+        enemyMoves = self.AllPieceMoves(board, oppColour) # Holds all enemy piece moves
+        friendlyMoves = self.AllPieceMoves(board, colour) # Holds all moves that can be made by friendly piece
 
         moves.append(friendlyMoves)
 
+        # Loops through all the moves in the moves list
         for move in moves[:]:
+            # Check if that move is in an enemy piece's move and removes it if so
             if move in enemyMoves:
                 moves.remove(move)
 
         return moves
 
-    def AttackUndefended(self, board):
-        score = 0
-        undefendedPiecePositions = []
-        enemyPiecePositions = self.AllPiecePositions(board, 'White')
-        enemyKingPosition = self.PiecePositions(board, 'King', 'White').get(1)
-        if self.GamePhases(board) == 'Opening':
-            enemyPiecePositions.remove(enemyKingPosition)
-
-        for positions in enemyPiecePositions:
-            if positions not in self.PieceDefenseMoves(board, 'White'):
-                undefendedPiecePositions.append(positions)
-
-        for move in self.AllPieceMoves(board, 'Black'):
-            if move in undefendedPiecePositions:
-                score += 2
-
-        return score
-
-    def AttackBonuses(self, board):
-        pass
-
+    # This method encourages the AI to play a pawn break if it's in a clamped position meaning it has less useful moves than white
     def PawnBreaks(self, board):
         score = 0
-        if self.GamePhases(board) == 'Middlegame' or self.GamePhases(board) == 'Opening':
-            if len(self.UsefulMoves(board, 'White')) - len(self.UsefulMoves(board, 'Black')) >= 5:
-                enemyPawnMoves = self.PieceMoves(board, 'Pawn', 'White')
-                friendlyPawnPositions = self.PiecePositions(board, 'Pawn', 'Black')
 
+        # Checks if the current game phase is in the Opening or Middlegame
+        if self.GamePhases(board) == 'Middlegame' or self.GamePhases(board) == 'Opening':
+            # Checks if white has more useful moves than black
+            if len(self.UsefulMoves(board, 'White')) - len(self.UsefulMoves(board, 'Black')) >= 5:
+                enemyPawnMoves = self.PieceMoves(board, 'Pawn', 'White') # Stores the dictionary which holds the valid moves of the white pawns
+                friendlyPawnPositions = self.PiecePositions(board, 'Pawn', 'Black') # Stores the positions of all the black pawns
+
+                # Loops through all the positions of all the black pawns
                 for pos in friendlyPawnPositions.values():
+                    # Checks if they are in the valid move of an enemy pawn so a pawn break could occur
                     if pos in enemyPawnMoves.values():
                         score += 2
 
         return score
 
+    # This is an endgame evaluation method which encourages the AI to push the furthest pawns that have no pieces in front of them
     def PromotionBonus(self, board):
         score = 0
-        rows = []
-        squaresEmpty = True
+        rows = [] # To store the rows of all the pawns
+
+        # Checks if the current game phase in the Endgame
         if self.GamePhases(board) == 'Endgame':
-            pawnPositions = self.PiecePositions(board, 'Pawn', 'Black')
+            pawnPositions = self.PiecePositions(board, 'Pawn', 'Black') # Holds the dictionary which stores the positions of all black pawns
+
+            # Loops through 1 to 8 to get the individual positions of each pawn
             for number in range(1, 9):
                 position = pawnPositions.get(number)
+                # Checks if the pawn exists
                 if position != None:
-                    rows.append(position[0])
+                    rows.append(position[0]) # It adds its row to the rows list
 
+            # Loops through all the pawn positions individually
             for pos in pawnPositions.values():
+                squaresEmpty = True
+                # Checks if the pawn exists
                 if pos != None:
+                    # Checks all the squares in front of the pawn till the last row
                     for row in range(pos[0] + 1, 8):
+                        # Checks if a piece is there
                         if board.board[row][pos[1]].piece != None:
-                            squaresEmpty = False
+                            squaresEmpty = False # Sets to False to indicate not all squares in front of it are empty
                             break
-
-                if pos != None and squaresEmpty and pos[0] == max(rows):
-                    score += 7 + pos[0]
-                    break
+                
+                # This checks if all squares in front of the pawn are empty
+                if pos != None and squaresEmpty:
+                    # Checks if the pawn is the closest to the promotion square
+                    if pos[0] == max(rows):
+                        score += 7 + pos[0] # Gives it a higher score
+                    else:
+                        score += 5 + pos[0] # Still gives a score so it can push the pawn but a lower one
 
         return score
-                    
-    def FairCapture(self, board):
-        pass
 
+    # This method encourages the AI to give checks if the number of moves white has while their king is in check is below a certain amount
     def CheckBonus(self, board):
-        total = 0
+        totalMoves = 0
         score = 0
-        if self.InCheck(board, 'White') != None:
-            total += len(self.AllPieceMoves(board, 'White'))
 
-        if total < 4:
-            score += 1.8
+        # Checks if the white king is in check
+        if self.InCheck(board, 'White') != None:
+            totalMoves = len(self.AllPieceMoves(board, 'White')) # Stores all the moves white can make while the king is in check
+            kingMoves = len(self.PieceMoves(board, 'King', 'White').get(1)) # Stores all the king moves white can make while in check
+            pieceMoves = totalMoves - kingMoves # Stores the number of moves pieces other than a king can make while in check
+            checkingPiecePosition = self.CheckingPiecePosition(board, 'White') # Holds the position of the black piece giving the check
+
+            # Checks if the black piece giving the check is not in positions to be captured by a white piece
+            if checkingPiecePosition not in self.AllPieceMoves(board, 'White'):
+                # Checks if total moves > 0 to prevent a math error and it can make 2 moves with pieces other than a king
+                if totalMoves > 0 and pieceMoves < 3 :
+                    score += 1.8/totalMoves # Used division so the smaller total moves is, the higher the score
 
         return score
     
+    # The main evaluation where all the separate evaluations are added for the hard AI
     def HardEvaluation(self, board):
-        mediumEval = self.MediumEvaluation(board)
+        mediumEval = self.MediumEvaluation(board) - self.Defense(board) + self.BetterDefense(board)
+        score = 0
 
+        # Checks if the current game phase is in the opening
+        if self.GamePhases(board) == 'Opening':
+            queenPosition = self.PiecePositions(board, 'Queen', 'Black').get(1)
+            # Checks if black has less or equal material
+            if self.MaterialEvaluation(board) <= 0:
+                 # Checks if the queen exists and the queen is in white's side of the board
+                if queenPosition != None and queenPosition[0] > 3:
+                        score -= 4 # Reduces to score to discourage bringing out the queen too early in the game
+
+        # Checks if the current game phase is in the endgame
         if self.GamePhases(board) == 'Endgame':
-            return self.PromotionBonus(board) + self.CheckBonus(board) + mediumEval + self.AttackUndefended(board)
+            # Checks if the king is castled on either side
+            if self.IsCastled(board, 'kingside') or self.IsCastled(board, 'queenside'):
+                score -= 6 # Reduces score to penalise being castled in the endgame
+
+            return self.PromotionBonus(board) + self.CheckBonus(board) + mediumEval + self.AttackUndefended(board) + score
 
         else:
-            return mediumEval + self.CheckBonus(board) + self.PawnBreaks(board) + self.AttackUndefended(board)
+            return mediumEval + self.CheckBonus(board) + self.PawnBreaks(board) + self.AttackUndefended(board) + score
     
                 

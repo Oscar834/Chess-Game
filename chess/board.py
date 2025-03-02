@@ -27,14 +27,6 @@ class Board:
         # This method places all the black pieces on their starting squares internally
         self.PlacePieces('Black')
 
-    def Display(self, board):
-        board_str = ""
-        for row in board.board:
-            board_str += " ".join(
-                square.piece.name[0] if square and square.piece else "." for square in row[1:]
-            ) + "\n"
-        print(board_str)
-
     def DrawBoard(self, screen, colour): 
         # Completely covers the screen in the chosen colour 
         screen.fill(colour) 
@@ -182,30 +174,24 @@ class Board:
         if self.CanCastleQueenside(colour):
             # Uses the MovePiece method to simultaneously move both the king and rook to the queenside castle position
             self.MovePiece(kingSquare, row, 3)
-            self.MovePiece(rookSquare, row, 4) 
-            
-    def Promotion(self, colour, screen):
-        # This checks if a pawn has reached the opponents first row (the end of the board)
+            self.MovePiece(rookSquare, row, 4)
+
+    def Promote(self, row, column, colour):
+        # Checks if a player has reached the end of the board (the starting row of their opponent)
+        if (colour == 'White' and row == 0) or (colour == 'Black' and row == 7):
+            self.board[row][column] = BoardSquares(row, column, Queen(colour)) # Places a queen on the square
+
+    def EnPassant(self, square, row, column, colour):
+        # Uses the piece colour to determine what row the removed pawn should be on
         if colour == 'White':
-            promotionRow = 0 
+            dir = 1
         else:
-            promotionRow = 7
+            dir = -1
 
-        for column in range(1, 9):
-            square = self.board[promotionRow][column] # Stores the square of all squares on the opponents last row
-            queen = BoardSquares(promotionRow, column, Queen(colour)) # Stores a queen piece object
+        self.MovePiece(square, row, column) # Moves the pawn normally to that square
+        self.Remove(row + dir, column) # Removes the opponent pawn to complete the enPassant movement
 
-            # This checks if the piece on the square of the opponents first row is a pawn
-            if square.piece != None and square.piece.name == 'Pawn' and square.piece.colour == colour:
-                square.piece = queen.piece # Replaces the pawn object with the queen object
-
-                # These next lines are then responsible for displaying the queen on that square
-                piece = square.piece
-                image = pygame.image.load(piece.image) # Loads the queen image using the image attribute of the piece
-                imageCentre = (column * SQUARE_WIDTH + SQUARE_HEIGHT // 2, promotionRow * SQUARE_HEIGHT + SQUARE_WIDTH // 2)
-                piece.imageRect = image.get_rect(center=imageCentre)
-                screen.blit(image, piece.imageRect) # Displays the queen onto the screen
-
+    # This method removes the piece on the row and column passed to it
     def Remove(self, row, column):
         square = self.board[row][column]
-        square.piece = None
+        square.piece = None # By setting the piece attribute to None, the piece is removed
